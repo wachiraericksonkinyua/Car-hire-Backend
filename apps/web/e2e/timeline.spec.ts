@@ -1,0 +1,57 @@
+import { expect, test } from '@playwright/test'
+import { DEMO_PASSWORD, users } from '../src/mocks/fixtures'
+
+test('staff creates a booking from an empty timeline cell', async ({ page }) => {
+  const manager = users.find((user) => user.role === 'manager')!
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/login')
+  await page.getByLabel('Work email').fill(manager.email)
+  await page.getByLabel('Password', { exact: true }).fill(DEMO_PASSWORD)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.goto('/admin/timeline')
+
+  const timeline = page.getByTestId('fleet-timeline')
+  await expect(timeline).toBeVisible()
+  const canvas = timeline.locator('.rct-scroll')
+  await canvas.click({ position: { x: 420, y: 30 } })
+  await expect(page).toHaveURL(/\/admin\/bookings\/new\?vehicleId=car-01/)
+  await page.getByLabel('Customer name').fill('Timeline Test Customer')
+  await page.getByLabel('Phone number').fill('712345678')
+  await page.getByLabel('Email address').fill('timeline@example.ke')
+  await page.getByLabel('ID or passport number').fill('ID-TIMELINE-01')
+  await page.getByRole('button', { name: 'Continue' }).click()
+  await expect(page.getByLabel('From EAT')).not.toHaveValue('')
+  await expect(page.getByLabel('To EAT')).not.toHaveValue('')
+  await page.getByLabel('Pickup location').fill('Nairobi HQ')
+  await page.getByRole('button', { name: 'Continue' }).click()
+  await page.getByRole('button', { name: /Toyota Prado TX/ }).click()
+  await page.getByRole('button', { name: 'Continue' }).click()
+  await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled({ timeout: 10000 })
+  await page.getByRole('button', { name: 'Continue' }).click()
+  await page.getByLabel('Payment method').selectOption('cash')
+  await page.getByRole('button', { name: 'Create reserved booking' }).click()
+  await expect(page).toHaveURL(/\/admin\/bookings\/booking-21$/)
+  const bookingReference = await page.getByRole('heading', { name: /BK-/ }).textContent()
+
+  await page.getByRole('navigation', { name: 'Staff navigation' }).getByRole('link', { name: 'Timeline' }).click()
+  const bookingBar = page.getByTestId('fleet-timeline').getByTitle(bookingReference ?? '')
+  await expect(bookingBar).toBeVisible()
+  await bookingBar.click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Open booking' })).toBeVisible()
+})
+
+test('timeline controls remain usable at a phone viewport', async ({ page }) => {
+  const manager = users.find((user) => user.role === 'manager')!
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/login')
+  await page.getByLabel('Work email').fill(manager.email)
+  await page.getByLabel('Password', { exact: true }).fill(DEMO_PASSWORD)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.goto('/admin/timeline')
+  await expect(page.getByRole('heading', { name: 'Fleet timeline' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '7 days' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '30 days' })).toBeVisible()
+  const pageWidth = await page.locator('body').evaluate((element) => ({ client: element.clientWidth, scroll: element.scrollWidth }))
+  expect(pageWidth.scroll).toBeLessThanOrEqual(pageWidth.client)
+})

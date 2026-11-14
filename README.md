@@ -1,10 +1,27 @@
-# AutoHire KE — Backend
+# AutoHire KE
 
-Car hire management API for Kenya.
+Car hire management platform for Kenya.
 
 - `apps/api` — FastAPI + async SQLAlchemy + PostgreSQL.
+- `apps/web` — React 19 + Vite dashboard/booking frontend.
 
 The backend is a single-tenant MVP. All application data lives in PostgreSQL.
+
+## Frontend
+
+The frontend was imported from
+`https://github.com/devmunguti/CarHire-frontend` at commit `426e379`.
+
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+
+It runs on <http://localhost:5173>. MSW mocks are enabled by default; set
+`VITE_USE_MOCKS=false` and `VITE_API_BASE_URL=http://localhost:8000/api/v1` to
+point it at the API (see `apps/api/FRONTEND_INTEGRATION.md` for the current
+contract differences).
 
 ## Requirements
 
@@ -50,6 +67,10 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 See `apps/api/README.md` for tests, the test database, and admin seeding.
+
+## Backend quickstart
+
+See `apps/api/README.md` for tests, the test database, and owner seeding.
 
 ## Conventions
 
