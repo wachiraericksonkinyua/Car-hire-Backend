@@ -15,13 +15,20 @@ The frontend was imported from
 ```bash
 cd apps/web
 npm install
-npm run dev
+npm run dev:web     # customer app, http://localhost:5173
+npm run dev:admin   # staff app,    http://localhost:5174
 ```
 
-It runs on <http://localhost:5173>. MSW mocks are enabled by default; set
-`VITE_USE_MOCKS=false` and `VITE_API_BASE_URL=http://localhost:8000/api/v1` to
-point it at the API (see `apps/api/FRONTEND_INTEGRATION.md` for the current
-contract differences).
+Two separately deployable builds:
+
+```bash
+npm run build:web     # dist/web
+npm run build:admin   # dist/admin
+```
+
+The customer app uses the public backend API. The admin app still uses MSW
+mocks by default while its API adapter is completed; see
+`apps/api/FRONTEND_INTEGRATION.md`.
 
 ## Requirements
 

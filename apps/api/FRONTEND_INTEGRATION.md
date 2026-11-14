@@ -3,12 +3,18 @@
 This document maps the completed **AutoHire KE FastAPI backend** to the
 React 19 + Vite frontend.
 
-> **Important scope note**
-> The backend is a **staff/dashboard API**. There is currently **no customer
-> login, registration, public vehicle catalogue, or customer-scoped booking
-> endpoint**. Customer details are stored on each booking. Any customer-facing
-> page that needs unauthenticated access or a “my bookings” view is marked
-> **BLOCKED** below and needs a backend addition.
+> **Current status**
+> - The frontend is split into **two deployable targets**: customer web
+>   (`npm run dev:web`, port 5173) and staff admin (`npm run dev:admin`, 5174).
+> - A **public customer API** now exists under `/api/v1/public`: catalogue,
+>   vehicle detail, quotes, guest booking creation, booking lookup by
+>   reference + phone, STK push, payment polling and nearest mechanics.
+> - The **customer web pages are connected** to those public endpoints.
+> - The **admin app still uses MSW mocks** until its adapter is completed; its
+>   expected contract differs in several places (camelCase, lowercase statuses,
+>   and non-matching routes).
+> - There are still **no customer accounts**. Guest lookup uses booking
+>   reference + phone; this replaces “my bookings” login for now.
 
 ---
 
@@ -188,6 +194,19 @@ Always display the `request_id` in error states and support logs.
 ---
 
 ## 2. Endpoint-to-Feature Map
+
+### Public customer API (used by `apps/web`)
+
+| Method | Endpoint | Feature / action |
+|---|---|---|
+| GET | `/api/v1/public/vehicles` | Customer catalogue with filters/pagination |
+| GET | `/api/v1/public/vehicles/{id}` | Customer vehicle detail + 30-day ranges |
+| POST | `/api/v1/public/quotes/calculate` | Guest quote breakdown |
+| POST | `/api/v1/public/bookings` | Guest reservation (Reserved + 30-min hold) |
+| GET | `/api/v1/public/bookings/{reference}?phone=` | Guest booking lookup |
+| POST | `/api/v1/public/payments/stk-push` | Guest M-Pesa STK push |
+| GET | `/api/v1/public/payments/{checkout_id}?reference=&phone=` | Guest payment polling |
+| GET | `/api/v1/public/mechanics/nearest` | Public SOS mechanic lookup |
 
 ### Auth
 
@@ -476,15 +495,16 @@ These must be resolved before the frontend can be fully public/customer-facing:
 
 | Gap | Impact |
 |---|---|
-| No public vehicle catalogue | Landing and vehicle detail require staff login |
-| No customer auth / customer booking owner | Customer dashboard, checkout, “my bookings” impossible |
-| No public booking/quote/payment endpoints | Customer checkout impossible |
+| ~~No public vehicle catalogue~~ | Implemented: `/api/v1/public/vehicles` |
+| ~~No public booking/quote/payment endpoints~~ | Implemented under `/api/v1/public` |
+| ~~No public mechanics endpoint~~ | Implemented: `/api/v1/public/mechanics/nearest` |
+| No customer accounts | Guest lookup by reference + phone is implemented; no saved profile/history |
+| Admin API adapter incomplete | Admin app currently runs on MSW mocks |
 | No vehicle photo upload/storage | Cards/details need placeholders |
 | No driver-profile API | Driver assignment needs a SQL insert |
 | No incident resolve endpoint | Mechanic cannot be automatically released |
 | No staff edit/password change | Profile/password screens limited |
 | No payment list/refund workflow | Payments page limited to flags/polling |
-| No public mechanics endpoint | SOS locator requires staff/driver login |
 | Later-phase pages absent | Customers/KYC, payments reconciliation, maintenance board, reports, settings |
 
 ---

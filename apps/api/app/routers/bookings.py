@@ -191,7 +191,7 @@ async def get_booking(
         await db.execute(
             select(Booking, Vehicle, User)
             .join(Vehicle, Booking.vehicle_id == Vehicle.id)
-            .join(User, Booking.created_by_id == User.id)
+            .outerjoin(User, Booking.created_by_id == User.id)
             .where(Booking.id == booking_id)
         )
     ).first()
@@ -213,9 +213,13 @@ async def get_booking(
                 brand=vehicle.brand,
                 model=vehicle.model,
             ),
-            created_by=StaffSummary(
-                id=creator.id,
-                full_name=creator.full_name,
+            created_by=(
+                StaffSummary(
+                    id=creator.id,
+                    full_name=creator.full_name,
+                )
+                if creator is not None
+                else None
             ),
         )
     }

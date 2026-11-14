@@ -826,3 +826,48 @@
   .home-hero__copy h1 { font-size: 31px; }
   .home-vehicle-card__image { min-height: 104px; }
 }
+/* Customer public pages */
+.customer-page { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 40px 0 72px; }
+.customer-page__header { max-width: 720px; margin-bottom: 24px; }
+.customer-page h1 { font-family: "Plus Jakarta Sans", Inter, system-ui, sans-serif; font-size: clamp(2rem, 4vw, 3rem); color: #0b1f3a; margin: 0 0 12px; }
+.customer-page h2 { color: #0b1f3a; }
+.customer-eyebrow { color: #0f766e; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: .78rem; }
+.customer-filter-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; padding: 16px; background: #f6f7f9; border: 1px solid #e3e7ee; border-radius: 12px; margin-bottom: 24px; }
+.customer-filter-bar label, .customer-book-panel label, .customer-panel label { display: grid; gap: 6px; font-size: .82rem; font-weight: 600; color: #334155; }
+.customer-filter-bar input, .customer-filter-bar select, .customer-book-panel input, .customer-book-panel select, .customer-panel input { min-height: 40px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; background: #fff; color: #0f172a; }
+.customer-check { display: flex !important; align-items: center; gap: 8px; }
+.customer-vehicle-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+.customer-vehicle-card { border: 1px solid #e3e7ee; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 8px 24px rgba(15, 23, 42, .05); }
+.customer-vehicle-card__photo, .customer-detail__photo { display: grid; place-items: center; font-size: 3rem; font-weight: 800; color: #0b1f3a; background: linear-gradient(135deg, #e8eef7, #f5a62333); min-height: 150px; }
+.customer-vehicle-card__body { padding: 16px; display: grid; gap: 12px; }
+.customer-vehicle-card__heading { display: flex; justify-content: space-between; gap: 12px; }
+.customer-vehicle-card__heading h3 { margin: 0; }
+.customer-vehicle-card__heading p { margin: 4px 0 0; color: #64748b; font-size: .85rem; }
+.customer-vehicle-card__heading strong { color: #0b1f3a; white-space: nowrap; }
+.customer-vehicle-card__heading small { font-weight: 400; color: #64748b; }
+.customer-vehicle-card__meta { margin: 0; color: #475569; font-size: .85rem; }
+.customer-status { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: .72rem; font-weight: 700; background: #dcfce7; color: #166534; }
+.customer-status--maintenance { background: #fee2e2; color: #991b1b; }
+.customer-status--booked, .customer-status--reserved, .customer-status--rented { background: #dbeafe; color: #1d4ed8; }
+.customer-detail__grid, .customer-checkout__grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, .9fr); gap: 28px; align-items: start; }
+.customer-book-panel, .customer-panel { border: 1px solid #e3e7ee; border-radius: 12px; padding: 20px; background: #fff; display: grid; gap: 14px; }
+.customer-specs { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 20px 0; }
+.customer-specs div { border: 1px solid #e3e7ee; border-radius: 8px; padding: 10px; }
+.customer-specs dt { color: #64748b; font-size: .76rem; text-transform: uppercase; letter-spacing: .05em; }
+.customer-specs dd { margin: 4px 0 0; font-weight: 700; color: #0b1f3a; }
+.customer-ranges { padding-left: 18px; color: #334155; }
+.customer-extras { border: 1px solid #e3e7ee; border-radius: 8px; padding: 12px; display: grid; gap: 8px; }
+.customer-extras label { display: flex; align-items: center; gap: 8px; font-size: .9rem; }
+.customer-quote { display: grid; gap: 8px; margin: 0; }
+.customer-quote div { display: flex; justify-content: space-between; gap: 16px; color: #334155; }
+.customer-quote dd { margin: 0; font-weight: 600; }
+.customer-quote__total { border-top: 1px solid #e3e7ee; padding-top: 10px; font-weight: 800; color: #0b1f3a !important; font-size: 1.08rem; }
+.customer-quote__total dd { font-weight: 800; }
+.customer-warning { color: #b45309; font-weight: 600; }
+.customer-error { color: #b91c1c; font-weight: 600; }
+.customer-back { display: inline-block; margin-bottom: 16px; color: #0f766e; font-weight: 600; }
+.customer-panel--summary { position: sticky; top: 90px; }
+@media (max-width: 860px) {
+  .customer-detail__grid, .customer-checkout__grid { grid-template-columns: 1fr; }
+  .customer-panel--summary { position: static; }
+}

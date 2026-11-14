@@ -303,6 +303,26 @@ pytest -k "pricing or dashboard" -q
 
 ---
 
+## 7a. Frontend (two deployables)
+
+```bash
+cd apps/web
+npm install
+
+npm run dev:web     # customer site, http://localhost:5173
+npm run dev:admin   # staff back-office, http://localhost:5174
+```
+
+Build separately:
+
+```bash
+npm run build:web   # apps/web/dist/web
+npm run build:admin # apps/web/dist/admin
+```
+
+Both origins are in `CORS_ORIGINS`. The customer app uses the public API;
+the admin app currently defaults to MSW mocks while its adapter is completed.
+
 ## 8. Run the API
 
 ```bash

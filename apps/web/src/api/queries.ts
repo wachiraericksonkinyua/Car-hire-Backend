@@ -2,14 +2,43 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from './client'
 import { ApiError } from './client'
 import type { AvailableDriversResponse, Booking, BookingCreateRequest, DashboardData, Driver, DriverTripStatus, HealthStatus, Incident, IncidentCreateRequest, IncidentDispatchType, MaintenanceWindow, Mechanic, MechanicCreateRequest, NearbyMechanic, NotificationCounts, QuoteRequest, QuoteResponse, SearchResult, Vehicle } from './types'
+import type { PublicVehicle, PublicVehicleList } from './public'
 import { buildDashboardData } from '../features/dashboard/dashboardData'
+
+const isWeb = __APP_TARGET__ === 'web'
+
+function mapVehicle(vehicle: PublicVehicle): Vehicle {
+  const status = vehicle.status === 'Maintenance'
+    ? 'maintenance'
+    : vehicle.status === 'Available'
+      ? 'available'
+      : 'booked'
+  return {
+    id: vehicle.id,
+    make: vehicle.brand,
+    model: vehicle.model,
+    category: vehicle.category,
+    year: vehicle.year,
+    registration: vehicle.plate_number,
+    seats: vehicle.seats,
+    transmission: vehicle.transmission.toLowerCase() === 'manual' ? 'manual' : 'automatic',
+    ratePerDay: vehicle.daily_rate_kes,
+    status,
+  }
+}
 
 export function useHealth() {
   return useQuery({ queryKey: ['health'], queryFn: () => apiClient.get<HealthStatus>('/health') })
 }
 
 export function useVehicles() {
-  return useQuery({ queryKey: ['vehicles'], queryFn: () => apiClient.get<Vehicle[]>('/vehicles') })
+  return useQuery({
+    queryKey: ['vehicles', __APP_TARGET__],
+    queryFn: async () => {
+      const data = await apiClient.get<PublicVehicleList>(`${isWeb ? '/public' : ''}/vehicles?limit=100`)
+      return data.items.map(mapVehicle)
+    },
+  })
 }
 
 export function useMaintenanceWindows(from: string, to: string) {
@@ -37,8 +66,13 @@ export function useBookingDetail(id: string) {
 
 export function useAvailableVehicles(from: string, to: string) {
   return useQuery({
-    queryKey: ['available-vehicles', from, to],
-    queryFn: () => apiClient.get<Vehicle[]>(`/vehicles?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+    queryKey: ['available-vehicles', __APP_TARGET__, from, to],
+    queryFn: async () => {
+      const data = await apiClient.get<PublicVehicleList>(
+        `${isWeb ? '/public' : ''}/vehicles?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&available_only=true&limit=100`,
+      )
+      return data.items.map(mapVehicle)
+    },
     enabled: Boolean(from && to),
   })
 }

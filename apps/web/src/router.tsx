@@ -34,7 +34,6 @@ const ApprovalsPage = lazy(() => import('./pages/admin').then((module) => ({ def
 const StaffPage = lazy(() => import('./pages/admin').then((module) => ({ default: module.StaffPage })))
 const AuditPage = lazy(() => import('./pages/admin').then((module) => ({ default: module.AuditPage })))
 const ProfilePage = lazy(() => import('./pages/admin').then((module) => ({ default: module.ProfilePage })))
-const StyleguidePage = lazy(() => import('./pages/StyleguidePage').then((module) => ({ default: module.StyleguidePage })))
 
 const officeRoles: UserRole[] = ['owner', 'manager', 'agent']
 const allRoles: UserRole[] = ['owner', 'manager', 'agent', 'driver', 'mechanic']
@@ -56,7 +55,7 @@ const protectedPage = (roles: UserRole[], Page: LazyExoticComponent<ComponentTyp
   <ProtectedContent roles={roles}>{page(Page)}</ProtectedContent>
 )
 
-export const router = createBrowserRouter([
+const publicRoutes = [
   {
     element: <PublicLayout />,
     children: [
@@ -69,11 +68,19 @@ export const router = createBrowserRouter([
       { path: '/booking/:ref', element: page(BookingPage) },
     ],
   },
-  { path: '/styleguide', element: page(StyleguidePage) },
+]
+
+export const webRouter = createBrowserRouter([
+  ...publicRoutes,
+  { path: '/403', element: <ForbiddenPage /> },
+  { path: '*', element: <NotFoundPage /> },
+])
+
+export const adminRouter = createBrowserRouter([
+  { path: '/', element: <Navigate replace to="/admin" /> },
   { path: '/login', element: <AuthLayout />, children: [{ index: true, element: page(LoginPage) }] },
   { path: '/admin/login', element: <Navigate replace to="/login" /> },
   { path: '/403', element: <ForbiddenPage /> },
-  { path: '/404', element: <NotFoundPage /> },
   {
     path: '/admin/my-trips',
     element: <ProtectedRoute roles={['driver']} />,

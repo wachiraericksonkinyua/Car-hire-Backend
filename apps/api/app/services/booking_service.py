@@ -54,7 +54,7 @@ async def _next_reference(db: AsyncSession, when) -> str:
 
 async def create_booking(
     db: AsyncSession,
-    created_by_id: UUID,
+    created_by_id: UUID | None,
     data: BookingCreate,
 ) -> Booking:
     """Create an atomic reservation and return it.

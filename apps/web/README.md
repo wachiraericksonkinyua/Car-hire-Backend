@@ -1,16 +1,56 @@
-# React + Vite
+# AutoHire KE — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React 19 + Vite frontend for AutoHire KE. The app builds two deployable
+targets from one codebase:
 
-Currently, two official plugins are available:
+| Target | Dev command | Port | Build output |
+|---|---|---|---|
+| Customer web | `npm run dev:web` | 5173 | `dist/web` |
+| Staff admin | `npm run dev:admin` | 5174 | `dist/admin` |
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Setup
 
-## React Compiler
+```bash
+npm install
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Customer web
 
-## Expanding the Oxlint configuration
+```bash
+npm run dev:web
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+- Uses the public backend API (`/api/v1/public/...`) with **no mock service worker**.
+- Set the API URL in `.env.web` (default `http://localhost:8000/api/v1`).
+- Pages: home/catalogue, vehicle details, guest checkout, booking lookup.
+
+## Staff admin
+
+```bash
+npm run dev:admin
+```
+
+- Runs on port 5174.
+- MSW mocks are enabled by default in `.env.admin` while the admin API
+  adapter is completed. Set `VITE_USE_MOCKS=false` to point it at the API.
+- The admin backend contract differs in places from the current admin UI; see
+  `../api/FRONTEND_INTEGRATION.md`.
+
+## Builds
+
+```bash
+npm run build:web     # dist/web
+npm run build:admin   # dist/admin
+npm run preview:web
+npm run preview:admin
+```
+
+Each build can be hosted independently (different domains/subdomains or
+different static hosts).
+
+## Tests
+
+```bash
+npm run type-check
+npm run test
+```

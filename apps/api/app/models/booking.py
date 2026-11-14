@@ -57,9 +57,9 @@ class Booking(Base):
     vehicle_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("vehicles.id"), index=True, nullable=False
     )
-    # Staff member who created the booking (separation of duties).
-    created_by_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("users.id"), index=True, nullable=False
+    # Staff member who created the booking. NULL for public/guest bookings.
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), index=True, nullable=True
     )
     driver_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("driver_profiles.id"), index=True, nullable=True

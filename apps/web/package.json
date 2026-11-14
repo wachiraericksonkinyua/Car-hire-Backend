@@ -1,18 +1,23 @@
 {
-  "name": "frontend",
+  "name": "autohire-frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "dev": "APP_TARGET=web vite --mode web",
+    "dev:web": "APP_TARGET=web vite --mode web --port 5173",
+    "dev:admin": "APP_TARGET=admin vite --mode admin --port 5174",
+    "build": "npm run type-check && npm run build:web && npm run build:admin",
+    "build:web": "APP_TARGET=web vite --mode web build",
+    "build:admin": "APP_TARGET=admin vite --mode admin build",
+    "preview:web": "APP_TARGET=web vite --mode web preview --port 4173",
+    "preview:admin": "APP_TARGET=admin vite --mode admin preview --port 4174",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "format": "prettier --write .",
-    "preview": "vite preview"
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@hookform/resolvers": "7.0.6",

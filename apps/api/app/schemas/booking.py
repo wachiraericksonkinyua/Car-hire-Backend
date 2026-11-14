@@ -105,7 +105,7 @@ class BookingResponse(BaseModel):
     id: UUID
     reference: str
     vehicle_id: UUID
-    created_by_id: UUID
+    created_by_id: UUID | None
     driver_id: UUID | None
     trip_status: str | None
 
@@ -134,4 +134,32 @@ class BookingResponse(BaseModel):
 
 class BookingDetailResponse(BookingResponse):
     vehicle: VehicleSummary
-    created_by: StaffSummary
+    created_by: StaffSummary | None
+
+
+class PublicBookingResponse(BaseModel):
+    reference: str
+    status: str
+    vehicle_id: UUID
+    pickup_at: datetime
+    return_at: datetime
+    hold_expires_at: datetime
+    total_kes: int
+    pricing_snapshot: dict | None
+
+
+class PublicBookingStatus(PublicBookingResponse):
+    payment_status: str | None
+    mpesa_receipt: str | None
+    refund_required: bool | None
+
+
+class PublicPaymentStatus(BaseModel):
+    checkout_request_id: str
+    status: str
+    amount_due_kes: int
+    amount_paid_kes: int
+    amount_mismatch: bool
+    refund_required: bool
+    mpesa_receipt: str | None
+    phone_masked: str | None
