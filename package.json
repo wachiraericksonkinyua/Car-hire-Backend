@@ -1,0 +1,12 @@
+{
+  "name": "car-hire",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Car Hire monorepo — React + Vite frontend in apps/web",
+  "scripts": {
+    "dev": "npm --prefix apps/web run dev",
+    "build": "npm --prefix apps/web run build",
+    "preview": "npm --prefix apps/web run preview",
+    "lint": "npm --prefix apps/web run lint"
+  }
+}
