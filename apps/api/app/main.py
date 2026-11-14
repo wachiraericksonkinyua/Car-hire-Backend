@@ -1,8 +1,10 @@
 # apps/api/app/main.py
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
@@ -51,6 +53,11 @@ app.add_middleware(
     expose_headers=["X-Request-ID"],
 )
 app.add_middleware(RequestIDMiddleware)
+
+# Local inspection-photo storage. Production should use object storage.
+UPLOAD_DIR = Path(__file__).resolve().parents[1] / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # All API routes live under /api/v1, e.g. /api/v1/auth/login
 app.include_router(auth_router, prefix="/api/v1")

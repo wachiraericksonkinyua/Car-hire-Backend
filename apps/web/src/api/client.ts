@@ -29,9 +29,10 @@ async function refreshAccessToken(): Promise<boolean> {
       method: 'POST',
       credentials: 'include',
     })
-    const envelope = (await response.json()) as ApiEnvelope<{ accessToken: string }>
-    if (!response.ok || !envelope.success || !envelope.data) return false
-    setAccessToken(envelope.data.accessToken)
+    const envelope = (await response.json()) as ApiEnvelope<{ accessToken?: string; access_token?: string }>
+    const token = envelope.data?.accessToken ?? envelope.data?.access_token
+    if (!response.ok || !envelope.success || !token) return false
+    setAccessToken(token)
     return true
   } catch {
     return false

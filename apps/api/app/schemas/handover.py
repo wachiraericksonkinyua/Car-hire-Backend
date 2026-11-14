@@ -24,6 +24,11 @@ class HandoverRequest(BaseModel):
         return self
 
 
+class HandoverPreviewRequest(BaseModel):
+    odometer: int = Field(ge=0)
+    completed_at: datetime | None = None
+
+
 class InspectionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -30,11 +30,12 @@ npm run dev:web
 npm run dev:admin
 ```
 
-- Runs on port 5174.
-- MSW mocks are enabled by default in `.env.admin` while the admin API
-  adapter is completed. Set `VITE_USE_MOCKS=false` to point it at the API.
-- The admin backend contract differs in places from the current admin UI; see
-  `../api/FRONTEND_INTEGRATION.md`.
+- Runs on port 5174 and uses the real backend (`.env.admin`, mocks off).
+- Login with `owner@autohire.ke` and the seeded owner password.
+- The API adapter maps snake_case/PascalCase backend responses to the UI's
+  camelCase/lowercase types.
+- Some advanced fields remain stubbed (maintenance windows, global search
+  richness, photo galleries); see `../api/FRONTEND_INTEGRATION.md`.
 
 ## Builds
 

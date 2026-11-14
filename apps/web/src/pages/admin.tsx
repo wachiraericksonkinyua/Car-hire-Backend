@@ -1,12 +1,35 @@
 import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, ConfirmDialog, DataTable, Input, Modal, Select, Toast } from '../components/ui'
 import { useAuth } from '../hooks/AuthContext'
 import { canApproveBooking } from '../hooks/useCan'
 import { useTranslation } from '../i18n'
 import type { AuditEntry, Booking, PaymentMethod, StaffMember, UserRole } from '../api/types'
-import { auditEntries as initialAuditEntries, bookings as initialBookings, staffMembers as initialStaffMembers } from '../mocks/fixtures'
+import { apiClient } from '../api/client'
+import { useBookingList, useVehicles } from '../api/queries'
+import { formatKes } from '../lib'
 import { PagePlaceholder } from './PagePlaceholder'
+
+interface BackendStaff {
+  id: string
+  email: string
+  full_name: string
+  phone: string | null
+  role: UserRole
+  is_active: boolean
+  last_login_at: string | null
+}
+
+interface BackendAudit {
+  id: string
+  actor_id: string | null
+  action: string
+  entity: string
+  entity_id: string | null
+  before: Record<string, unknown> | null
+  after: Record<string, unknown> | null
+  created_at: string
+}
 
 const paymentMethods = [
   { value: 'cash', label: 'Cash' },
@@ -14,6 +37,14 @@ const paymentMethods = [
   { value: 'bank', label: 'Bank EFT' },
   { value: 'corporate', label: 'Corporate Credit' },
 ] as const
+
+const backendPaymentMethod: Record<PaymentMethod, string> = {
+  cash: 'Cash',
+  bank: 'Bank EFT',
+  corporate: 'Corporate Credit',
+  mpesa_manual: 'M-Pesa Manual',
+  mpesa_online: 'M-Pesa Manual',
+}
 
 const roleOptions = [
   { value: 'owner', label: 'Owner' },
@@ -55,16 +86,139 @@ function formatHoldRemaining(value: string | undefined) {
 }
 
 function DashboardPage() { const { t } = useTranslation(); return <PagePlaceholder title={t('page.dashboard')} /> }
-function FleetPage() { const { t } = useTranslation(); return <PagePlaceholder title={t('page.fleet')} /> }
 function BookingsPage() { const { t } = useTranslation(); return <PagePlaceholder title={t('page.bookings')} /> }
-function ProfilePage() { const { t } = useTranslation(); return <PagePlaceholder title={t('page.profile')} /> }
+
+const emptyVehicle = {
+  plate_number: '',
+  brand: '',
+  model: '',
+  year: new Date().getFullYear(),
+  category: 'SUV',
+  transmission: 'Automatic',
+  fuel: 'Petrol',
+  seats: 5,
+  bags: 2,
+  daily_rate_kes: 8000,
+  deposit_kes: 20000,
+  mileage_cap_km: 300,
+  insurance_expiry: '2030-12-31',
+}
+
+export function FleetPage() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const vehiclesQuery = useVehicles()
+  const canManage = user?.role === 'owner' || user?.role === 'manager'
+  const [form, setForm] = useState(emptyVehicle)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  async function refresh() {
+    await queryClient.invalidateQueries({ queryKey: ['vehicles'] })
+  }
+
+  async function addVehicle(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSaving(true)
+    setNotice(null)
+    try {
+      await apiClient.post('/vehicles', {
+        ...form,
+        year: Number(form.year),
+        seats: Number(form.seats),
+        bags: Number(form.bags),
+        daily_rate_kes: Number(form.daily_rate_kes),
+        deposit_kes: Number(form.deposit_kes),
+        mileage_cap_km: Number(form.mileage_cap_km),
+      })
+      setForm(emptyVehicle)
+      setNotice('Vehicle added.')
+      await refresh()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not add vehicle.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function updateVehicle(id: string, patch: Record<string, unknown>) {
+    setNotice(null)
+    try {
+      await apiClient.patch(`/vehicles/${encodeURIComponent(id)}`, patch)
+      await refresh()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not update vehicle.')
+    }
+  }
+
+  return (
+    <section className="page-shell">
+      <header className="page-header"><div><p className="eyebrow">AutoHire KE</p><h1>Fleet</h1></div></header>
+      <div className="stack stack--lg">
+        {notice && <p className="field__hint" role="status">{notice}</p>}
+        <div className="card-panel">
+          <DataTable
+            columns={[
+              { key: 'vehicle', header: 'Vehicle', render: (row) => <><strong>{row.make} {row.model}</strong><div className="muted">{row.registration}</div></> },
+              { key: 'year', header: 'Year', render: (row) => row.year },
+              { key: 'category', header: 'Category', render: (row) => row.category ?? '—' },
+              { key: 'seats', header: 'Seats', render: (row) => row.seats },
+              { key: 'rate', header: 'Rate/day', render: (row) => formatKes(row.ratePerDay) },
+              { key: 'status', header: 'Status', render: (row) => <span className={`status-pill status-pill--${row.status}`}>{row.status}</span> },
+              { key: 'action', header: 'Actions', render: (row) => canManage ? (
+                <div className="inline-actions">
+                  <Button size="sm" variant="secondary" onClick={() => void updateVehicle(row.id, { status: row.status === 'maintenance' ? 'Available' : 'Maintenance' })}>
+                    {row.status === 'maintenance' ? 'Release' : 'Maintenance'}
+                  </Button>
+                </div>
+              ) : '—' },
+            ]}
+            empty={<div className="empty-state">No vehicles yet.</div>}
+            rowKey={(row) => row.id}
+            rows={vehiclesQuery.data ?? []}
+          />
+        </div>
+        {canManage && <form className="card-panel stack stack--md" onSubmit={(event) => void addVehicle(event)}>
+          <h2>Add vehicle</h2>
+          <div className="filter-grid">
+            <Input label="Plate" onChange={(event) => setForm({ ...form, plate_number: event.target.value })} value={form.plate_number} />
+            <Input label="Brand" onChange={(event) => setForm({ ...form, brand: event.target.value })} value={form.brand} />
+            <Input label="Model" onChange={(event) => setForm({ ...form, model: event.target.value })} value={form.model} />
+            <Input label="Year" onChange={(event) => setForm({ ...form, year: Number(event.target.value) })} type="number" value={form.year} />
+            <Select label="Category" onChange={(event) => setForm({ ...form, category: event.target.value })} options={['Economy', 'Compact SUV', '4x4', 'Minivan', 'Luxury'].map((value) => ({ value, label: value }))} value={form.category} />
+            <Select label="Transmission" onChange={(event) => setForm({ ...form, transmission: event.target.value })} options={[{ value: 'Automatic', label: 'Automatic' }, { value: 'Manual', label: 'Manual' }]} value={form.transmission} />
+            <Input label="Daily rate (KES)" onChange={(event) => setForm({ ...form, daily_rate_kes: Number(event.target.value) })} type="number" value={form.daily_rate_kes} />
+            <Input label="Deposit (KES)" onChange={(event) => setForm({ ...form, deposit_kes: Number(event.target.value) })} type="number" value={form.deposit_kes} />
+          </div>
+          <Button disabled={saving} type="submit">{saving ? 'Saving…' : 'Add vehicle'}</Button>
+        </form>}
+      </div>
+    </section>
+  )
+}
+
+export function ProfilePage() {
+  const { user } = useAuth()
+  return (
+    <section className="page-shell">
+      <header className="page-header"><div><p className="eyebrow">AutoHire KE</p><h1>Profile</h1></div></header>
+      <div className="card-panel stack stack--md">
+        <div><span className="label">Name</span><strong>{user?.name}</strong></div>
+        <div><span className="label">Email</span><strong>{user?.email}</strong></div>
+        <div><span className="label">Role</span><strong>{user?.role}</strong></div>
+        <p className="field__hint">Password changes are not available in this MVP yet.</p>
+      </div>
+    </section>
+  )
+}
 
 export function ApprovalsPage() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
-  const [approvals, setApprovals] = useState(() => initialBookings
-    .filter((booking) => booking.status === 'reserved' && booking.pendingApproval !== false)
-    .sort((left, right) => (left.holdExpiresAt ?? left.pickupAt).localeCompare(right.holdExpiresAt ?? right.pickupAt)))
+  const approvalsQuery = useBookingList('status=reserved&pendingApproval=true')
+  const approvals = [...(approvalsQuery.data ?? [])]
+    .filter((booking) => booking.pendingApproval !== false)
+    .sort((left, right) => (left.holdExpiresAt ?? left.pickupAt).localeCompare(right.holdExpiresAt ?? right.pickupAt))
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [reference, setReference] = useState('')
@@ -121,11 +275,22 @@ export function ApprovalsPage() {
       return
     }
 
-    setApprovals((current) => current.filter((booking) => booking.id !== selectedBooking.id))
-    setToast('Offline approval recorded successfully.')
-    queryClient.invalidateQueries({ queryKey: ['bookings'] })
-    queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-    closeApproval()
+    try {
+      await apiClient.patch(`/bookings/${encodeURIComponent(selectedBooking.id)}/approve-offline`, {
+        payment_method: backendPaymentMethod[paymentMethod],
+        payment_reference: reference.trim(),
+        reason: reason.trim() || undefined,
+      })
+      setToast('Offline approval recorded successfully.')
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['bookings'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['shell-notifications'] }),
+      ])
+      closeApproval()
+    } catch (approvalError) {
+      setError(approvalError instanceof Error ? approvalError.message : 'Approval could not be recorded.')
+    }
   }
 
   const approvalRows = approvals
@@ -142,10 +307,7 @@ export function ApprovalsPage() {
           <DataTable
             columns={[
               { key: 'booking', header: 'Booking', render: (row: Booking) => <><strong>{row.reference}</strong><div className="muted">{row.customerName}</div></> },
-              { key: 'vehicle', header: 'Vehicle', render: (row: Booking) => {
-                const vehicle = initialBookings.find((item) => item.id === row.id)
-                return <span>{vehicle ? vehicle.reference : row.vehicleId}</span>
-              } },
+              { key: 'vehicle', header: 'Vehicle', render: (row: Booking) => <span>{row.vehicleRegistration ?? row.vehicleId}</span> },
               { key: 'age', header: 'Age', render: (row: Booking) => <span>{formatAge(row.pickupAt)}</span> },
               { key: 'hold', header: 'Hold', render: (row: Booking) => <span>{formatHoldRemaining(row.holdExpiresAt)}</span> },
               { key: 'amount', header: 'Amount', render: (row: Booking) => <strong>{new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', maximumFractionDigits: 0 }).format(row.totalKes)}</strong> },
@@ -219,8 +381,25 @@ export function ApprovalsPage() {
 
 export function StaffPage() {
   const { user } = useAuth()
-  const [staff, setStaff] = useState<StaffMember[]>(initialStaffMembers)
-  const [invite, setInvite] = useState({ name: '', email: '', phone: '', role: 'agent', branch: 'Nairobi HQ' })
+  const queryClient = useQueryClient()
+  const staffQuery = useQuery({
+    queryKey: ['staff'],
+    queryFn: async () => {
+      const rows = await apiClient.get<BackendStaff[]>('/staff?limit=200')
+      return rows.map((row): StaffMember => ({
+        id: row.id,
+        name: row.full_name,
+        email: row.email,
+        phone: row.phone ?? '',
+        role: row.role,
+        branch: 'Nairobi HQ',
+        active: row.is_active,
+        lastLogin: row.last_login_at ?? 'Never',
+      }))
+    },
+  })
+  const staff = staffQuery.data ?? []
+  const [invite, setInvite] = useState({ name: '', email: '', phone: '', role: 'agent', branch: 'Nairobi HQ', password: '' })
   const [memberToDeactivate, setMemberToDeactivate] = useState<StaffMember | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -228,33 +407,40 @@ export function StaffPage() {
     ? roleOptions.filter((option) => option.value !== 'owner')
     : roleOptions
 
-  function applyInvite(event: React.FormEvent<HTMLFormElement>) {
+  async function refreshStaff() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['staff'] }),
+      queryClient.invalidateQueries({ queryKey: ['audit'] }),
+    ])
+  }
+
+  async function applyInvite(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!invite.name.trim() || !invite.email.trim() || !invite.phone.trim()) {
-      setNotice('Name, email and phone are required.')
+    if (!invite.name.trim() || !invite.email.trim() || !invite.phone.trim() || invite.password.length < 8) {
+      setNotice('Name, email, phone and an 8+ character password are required.')
       return
     }
     if (user?.role === 'manager' && invite.role === 'owner') {
       setNotice('Managers cannot create owner accounts.')
       return
     }
-
-    const newMember: StaffMember = {
-      id: `usr-${Date.now()}`,
-      name: invite.name.trim(),
-      email: invite.email.trim(),
-      phone: invite.phone.trim(),
-      role: invite.role as UserRole,
-      branch: invite.branch || 'Nairobi HQ',
-      active: true,
-      lastLogin: 'Never',
+    try {
+      await apiClient.post('/staff', {
+        email: invite.email.trim(),
+        full_name: invite.name.trim(),
+        phone: invite.phone.trim(),
+        role: invite.role,
+        password: invite.password,
+      })
+      setInvite({ name: '', email: '', phone: '', role: 'agent', branch: 'Nairobi HQ', password: '' })
+      setNotice('Staff account created successfully.')
+      await refreshStaff()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not create staff account.')
     }
-    setStaff((current) => [newMember, ...current])
-    setInvite({ name: '', email: '', phone: '', role: 'agent', branch: 'Nairobi HQ' })
-    setNotice('Staff invite added successfully.')
   }
 
-  function updateRole(member: StaffMember, role: UserRole) {
+  async function updateRole(member: StaffMember, role: UserRole) {
     if (user?.role === 'manager' && member.role === 'owner') {
       setNotice('Managers cannot demote an owner.')
       return
@@ -263,7 +449,12 @@ export function StaffPage() {
       setNotice('You cannot change your own role.')
       return
     }
-    setStaff((current) => current.map((person) => person.id === member.id ? { ...person, role } : person))
+    try {
+      await apiClient.patch(`/staff/${encodeURIComponent(member.id)}/role`, { role })
+      await refreshStaff()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not change role.')
+    }
   }
 
   function deactivateMember(member: StaffMember) {
@@ -279,15 +470,25 @@ export function StaffPage() {
     setMemberToDeactivate(member)
   }
 
-  function deactivateConfirmed() {
+  async function deactivateConfirmed() {
     if (!memberToDeactivate) return
-    setStaff((current) => current.map((person) => person.id === memberToDeactivate.id ? { ...person, active: false } : person))
-    setMemberToDeactivate(null)
-    setNotice('The staff member has been deactivated and will be logged out immediately.')
+    try {
+      await apiClient.patch(`/staff/${encodeURIComponent(memberToDeactivate.id)}/status`, { is_active: false })
+      setMemberToDeactivate(null)
+      setNotice('The staff member has been deactivated and logged out immediately.')
+      await refreshStaff()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not deactivate staff member.')
+    }
   }
 
-  function reactivateMember(member: StaffMember) {
-    setStaff((current) => current.map((person) => person.id === member.id ? { ...person, active: true } : person))
+  async function reactivateMember(member: StaffMember) {
+    try {
+      await apiClient.patch(`/staff/${encodeURIComponent(member.id)}/status`, { is_active: true })
+      await refreshStaff()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not reactivate staff member.')
+    }
   }
 
   return (
@@ -330,6 +531,7 @@ export function StaffPage() {
             <Input label="Email" onChange={(event) => setInvite((current) => ({ ...current, email: event.target.value }))} type="email" value={invite.email} />
             <Input label="Phone" onChange={(event) => setInvite((current) => ({ ...current, phone: event.target.value }))} type="tel" value={invite.phone} />
             <Select label="Role" onChange={(event) => setInvite((current) => ({ ...current, role: event.target.value }))} options={roleChoices.map((option) => ({ value: option.value, label: option.label }))} value={invite.role} />
+            <Input label="Temporary password" onChange={(event) => setInvite((current) => ({ ...current, password: event.target.value }))} type="password" value={invite.password} />
             <Input label="Branch" onChange={(event) => setInvite((current) => ({ ...current, branch: event.target.value }))} value={invite.branch} />
             {notice && <p className="field__hint" role="status">{notice}</p>}
             <Button type="submit">Invite staff</Button>
@@ -362,11 +564,28 @@ export function AuditPage() {
     return <section className="page-shell"><div className="card-panel"><h1>Access denied</h1><p>You must be an owner to view the audit log.</p></div></section>
   }
 
-  const actorOptions = ['all', ...new Set((initialAuditEntries as AuditEntry[]).map((entry) => entry.actor))]
-  const actionOptions = ['all', ...new Set((initialAuditEntries as AuditEntry[]).map((entry) => entry.action))]
-  const entityOptions = ['all', ...new Set((initialAuditEntries as AuditEntry[]).map((entry) => entry.entity))]
+  const auditQuery = useQuery({
+    queryKey: ['audit'],
+    queryFn: async () => {
+      const rows = await apiClient.get<BackendAudit[]>('/audit?limit=200')
+      return rows.map((row): AuditEntry => ({
+        id: row.id,
+        actor: row.actor_id ?? 'system',
+        action: row.action,
+        entity: row.entity,
+        createdAt: row.created_at,
+        before: row.before ?? undefined,
+        after: row.after ?? undefined,
+      }))
+    },
+  })
+  const auditEntries = auditQuery.data ?? []
 
-  const filtered = (initialAuditEntries as AuditEntry[]).filter((entry) => {
+  const actorOptions = ['all', ...new Set(auditEntries.map((entry) => entry.actor))]
+  const actionOptions = ['all', ...new Set(auditEntries.map((entry) => entry.action))]
+  const entityOptions = ['all', ...new Set(auditEntries.map((entry) => entry.entity))]
+
+  const filtered = auditEntries.filter((entry) => {
     const itemTime = new Date(entry.createdAt).getTime()
     const from = fromDate ? new Date(fromDate).getTime() : Number.NEGATIVE_INFINITY
     const to = toDate ? new Date(toDate).getTime() + 86_400_000 : Number.POSITIVE_INFINITY
@@ -414,4 +633,4 @@ export function AuditPage() {
   )
 }
 
-export { DashboardPage, FleetPage, BookingsPage, ProfilePage }
+export { DashboardPage, BookingsPage }

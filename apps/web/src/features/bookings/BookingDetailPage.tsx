@@ -35,9 +35,7 @@ export function BookingDetailPage() {
   const assignableDrivers = (availableDriversQuery.data?.drivers ?? []).filter((driver) => booking
     && !getDriverEligibilityReason(driver, booking.returnAt)
     && (!vehicle || vehicle.seats <= 8 || driver.licenceClass === 'C1'))
-  const suggestedDriverId = assignableDrivers.some((driver) => driver.id === availableDriversQuery.data?.autoAssignDriverId)
-    ? availableDriversQuery.data?.autoAssignDriverId ?? null
-    : null
+  const suggestedDriverId = assignableDrivers[0]?.id ?? null
 
   async function updateStatus(status: BookingStatus) {
     setActionError(false)

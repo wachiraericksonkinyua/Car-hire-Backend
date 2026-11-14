@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Camera, RotateCw, Upload } from 'lucide-react'
 import { ApiError, apiClient } from '../../api/client'
 import { useBookingDetail } from '../../api/queries'
-import type { Booking, BookingInspection, HandoverRequest, HandoverSettlement } from '../../api/types'
+import type { BookingInspection, HandoverSettlement } from '../../api/types'
 import { Button, ErrorState, Input, Select, Skeleton } from '../../components/ui'
 import { useAuth } from '../../hooks/AuthContext'
 import { formatEat, formatKes } from '../../lib'
@@ -87,15 +87,19 @@ export function HandoverPage() {
     for (const photo of additions) void uploadPhoto(photo.id, photo.file)
   }
 
-  function makeRequest(): HandoverRequest {
+  function fuelPercent(): number {
+    return ({ empty: 0, quarter: 25, half: 50, three_quarters: 75, full: 100 } as Record<string, number>)[fuelLevel] ?? 0
+  }
+
+  function makeRequest() {
     return {
-      odometer: Number(odometerInput),
-      fuelLevel,
-      notes: notes.trim(),
+      fuel_percent: fuelPercent(),
+      odometer_km: Number(odometerInput),
+      notes: notes.trim() || null,
       photos: photos.flatMap((photo) => photo.status === 'uploaded' && photo.url ? [photo.url] : []),
-      signatureConfirmed,
-      criticalDefect,
-      completedAt: new Date().toISOString(),
+      signature: signatureConfirmed ? 'confirmed-on-device' : null,
+      confirmation: signatureConfirmed,
+      critical_defect: criticalDefect,
     }
   }
 
@@ -120,7 +124,7 @@ export function HandoverPage() {
     setSaving(true)
     try {
       if (isCheckout) {
-        await apiClient.post<Booking>(`/bookings/${encodeURIComponent(id)}/check-out`, makeRequest())
+        await apiClient.post<unknown>(`/bookings/${encodeURIComponent(id)}/check-out`, makeRequest())
         await queryClient.invalidateQueries({ queryKey: ['booking', id] })
         await queryClient.invalidateQueries({ queryKey: ['bookings'] })
         await queryClient.invalidateQueries({ queryKey: ['vehicles'] })
@@ -128,7 +132,7 @@ export function HandoverPage() {
       } else {
         const preview = await apiClient.post<HandoverSettlement>(`/bookings/${encodeURIComponent(id)}/check-in/settlement`, {
           odometer: Number(odometerInput),
-          completedAt: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
         })
         setSettlement(preview)
         setReviewing(true)
@@ -144,7 +148,7 @@ export function HandoverPage() {
     setError(null)
     setSaving(true)
     try {
-      await apiClient.post<Booking>(`/bookings/${encodeURIComponent(id)}/check-in`, makeRequest())
+      await apiClient.post<unknown>(`/bookings/${encodeURIComponent(id)}/check-in`, makeRequest())
       await queryClient.invalidateQueries({ queryKey: ['booking', id] })
       await queryClient.invalidateQueries({ queryKey: ['bookings'] })
       await queryClient.invalidateQueries({ queryKey: ['vehicles'] })

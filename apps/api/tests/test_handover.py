@@ -130,6 +130,14 @@ async def test_full_handover_cycle(db_session, api_client):
     await db_session.refresh(booking)
     assert booking.status == BookingStatus.CHECKED_OUT
 
+    preview = await api_client.post(
+        f"/api/v1/bookings/{BOOKING_ID}/check-in/settlement",
+        json={"odometer": 1200},
+    )
+    assert preview.status_code == 200
+    assert preview.json()["data"]["odometerDifferenceKm"] == 200
+    assert preview.json()["data"]["totalKes"] == 0
+
     checkin = await api_client.post(
         f"/api/v1/bookings/{BOOKING_ID}/check-in",
         json=_handover(odometer_km=1200, fuel_percent=90),

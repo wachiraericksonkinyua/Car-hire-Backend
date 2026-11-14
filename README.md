@@ -26,9 +26,9 @@ npm run build:web     # dist/web
 npm run build:admin   # dist/admin
 ```
 
-The customer app uses the public backend API. The admin app still uses MSW
-mocks by default while its API adapter is completed; see
-`apps/api/FRONTEND_INTEGRATION.md`.
+Both apps are wired to the backend. The customer app uses the public API; the
+admin app uses the authenticated staff API through a response adapter. See
+`apps/api/FRONTEND_INTEGRATION.md` for the remaining gaps.
 
 ## Requirements
 

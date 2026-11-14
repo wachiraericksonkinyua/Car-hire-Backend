@@ -2,7 +2,6 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2, Clock3, RotateCw, Smartphone, XCircle } from 'lucide-react'
 import { ApiError, apiClient } from '../../api/client'
-import type { StkInitiation, StkStatus } from '../../api/types'
 import { Button, PhoneInput } from '../../components/ui'
 import { isKenyanPhone, maskKenyanPhone, normalisePhone } from '../../lib'
 
@@ -35,20 +34,28 @@ export function PaymentStatus({
     if (pollInFlight.current) return
     pollInFlight.current = true
     try {
-      const result = await apiClient.get<StkStatus>(`/payments/${encodeURIComponent(id)}/status`)
-      setPaidAmountKes(result.paidAmountKes)
-      if (result.outcome === 'confirmed') {
+      const result = await apiClient.get<{
+        status: string
+        amount_paid_kes: number
+        amount_mismatch: boolean
+        refund_required: boolean
+        mpesa_receipt: string | null
+        phone_masked: string | null
+      }>(`/payments/${encodeURIComponent(id)}`)
+      setPaidAmountKes(result.amount_paid_kes)
+      if (result.phone_masked) setMaskedPhone(result.phone_masked)
+      if (result.status === 'Completed') {
         setPaymentState('confirmed')
         setManualMessage(null)
         await queryClient.invalidateQueries({ queryKey: ['booking', bookingId] })
         await queryClient.invalidateQueries({ queryKey: ['bookings'] })
         onConfirmed?.()
-      } else if (result.outcome === 'failed') {
+      } else if (result.status === 'Failed') {
         setPaymentState('failed')
-        setError(result.message ?? 'The payment was not completed.')
-      } else if (result.outcome === 'manual_refund') {
+        setError('The payment was not completed.')
+      } else if (result.status === 'Mismatched' || result.refund_required) {
         setPaymentState('manual_refund')
-        setError(result.message ?? 'This late payment was flagged for manual refund.')
+        setError('This payment needs staff review for a refund or amount mismatch.')
       } else if (paymentState === 'timeout') {
         setManualMessage('The payment is still processing. Check again shortly.')
       }
@@ -81,12 +88,12 @@ export function PaymentStatus({
       return
     }
     try {
-      const result = await apiClient.post<StkInitiation>(`/bookings/${encodeURIComponent(bookingId)}/payments/stk`, {
-        phone: normalisePhone(phone),
-        amountKes: amountDueKes,
+      const result = await apiClient.post<{ checkout_request_id: string }>('/payments/stk-push', {
+        booking_id: bookingId,
+        phone_number: normalisePhone(phone),
       })
-      setPaymentId(result.paymentId)
-      setMaskedPhone(result.maskedPhone || maskKenyanPhone(phone))
+      setPaymentId(result.checkout_request_id)
+      setMaskedPhone(maskKenyanPhone(phone))
       deadline.current = Date.now() + 120_000
       setSecondsRemaining(120)
       setPaidAmountKes(undefined)

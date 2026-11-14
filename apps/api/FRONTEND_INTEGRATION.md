@@ -10,11 +10,14 @@ React 19 + Vite frontend.
 >   vehicle detail, quotes, guest booking creation, booking lookup by
 >   reference + phone, STK push, payment polling and nearest mechanics.
 > - The **customer web pages are connected** to those public endpoints.
-> - The **admin app still uses MSW mocks** until its adapter is completed; its
->   expected contract differs in several places (camelCase, lowercase statuses,
->   and non-matching routes).
+> - The **admin app is wired to the real staff API** through a response adapter
+>   (`apps/web/src/api/backend.ts` and `queries.ts`): auth, dashboard, fleet,
+>   bookings, approvals, handover, payments, drivers, mechanics, incidents,
+>   staff and audit.
 > - There are still **no customer accounts**. Guest lookup uses booking
 >   reference + phone; this replaces “my bookings” login for now.
+> - Remaining admin gaps: richer maintenance windows/search, photo galleries,
+>   and some advanced booking transitions not exposed by the backend UI.
 
 ---
 
@@ -499,7 +502,7 @@ These must be resolved before the frontend can be fully public/customer-facing:
 | ~~No public booking/quote/payment endpoints~~ | Implemented under `/api/v1/public` |
 | ~~No public mechanics endpoint~~ | Implemented: `/api/v1/public/mechanics/nearest` |
 | No customer accounts | Guest lookup by reference + phone is implemented; no saved profile/history |
-| Admin API adapter incomplete | Admin app currently runs on MSW mocks |
+| Admin maintenance/search richness | Maintenance windows are empty; search covers bookings + vehicles |
 | No vehicle photo upload/storage | Cards/details need placeholders |
 | No driver-profile API | Driver assignment needs a SQL insert |
 | No incident resolve endpoint | Mechanic cannot be automatically released |

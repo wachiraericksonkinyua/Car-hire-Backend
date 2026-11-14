@@ -2,9 +2,19 @@
 
 from datetime import datetime, timedelta
 from math import ceil
-from uuid import UUID
+from pathlib import Path
+from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,10 +44,12 @@ from app.schemas.common import SuccessEnvelope
 from app.schemas.driver import AssignDriverRequest
 from app.schemas.handover import (
     CheckInResponse,
+    HandoverPreviewRequest,
     HandoverRequest,
     InspectionResponse,
 )
 from app.services.audit_service import record_audit, snapshot
+from app.services.handover_service import calculate_settlement
 from app.services.driver_service import (
     driver_has_conflict,
     release_driver_if_idle,
@@ -52,6 +64,8 @@ from app.services.booking_service import (
 from app.utils.time import as_utc, utc_now
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
+
+UPLOAD_ROOT = Path(__file__).resolve().parents[2] / "uploads"
 
 _AUDITED_FIELDS = [
     "status",
@@ -624,6 +638,125 @@ async def check_in_booking(
             vehicle_status=vehicle.status.value,
             settlement=settlement,
         )
+    }
+
+
+@router.post("/{booking_id}/check-in/settlement")
+async def preview_check_in_settlement(
+    booking_id: UUID,
+    data: HandoverPreviewRequest,
+    _payload: dict = Depends(require_permission(Permission.BOOKING_CHECKIN)),
+    db: AsyncSession = Depends(get_db),
+):
+    booking = await db.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Booking not found",
+        )
+    if booking.status not in {
+        BookingStatus.CHECKED_OUT,
+        BookingStatus.OVERDUE,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only CheckedOut or Overdue bookings can be checked in",
+        )
+
+    vehicle = await db.get(Vehicle, booking.vehicle_id)
+    if vehicle is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vehicle not found",
+        )
+    checkout = await db.scalar(
+        select(Inspection)
+        .where(
+            Inspection.booking_id == booking.id,
+            Inspection.kind == InspectionKind.CHECK_OUT,
+        )
+        .order_by(Inspection.created_at.desc())
+        .limit(1)
+    )
+    if checkout is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No check-out inspection exists for this booking",
+        )
+    if data.odometer < checkout.odometer_km:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Odometer must be greater than or equal to check-out",
+        )
+
+    amount = calculate_settlement(
+        booking,
+        vehicle,
+        checkout_odometer_km=checkout.odometer_km,
+        odometer_km=data.odometer,
+        now=utc_now(),
+    )
+    return {
+        "data": {
+            "graceHours": amount["grace_hours"],
+            "lateHours": amount["late_hours"],
+            "lateFeeKes": amount["late_fee_kes"],
+            "odometerDifferenceKm": amount["distance_km"],
+            "includedMileageKm": amount["included_mileage_km"],
+            "excessMileageKm": amount["excess_km"],
+            "excessMileageRateKes": amount["excess_mileage_rate_kes"],
+            "excessMileageChargeKes": amount["excess_mileage_kes"],
+            "totalKes": amount["total_charges_kes"],
+        }
+    }
+
+
+@router.post("/{booking_id}/inspections/photos")
+async def upload_inspection_photo(
+    booking_id: UUID,
+    request: Request,
+    file: UploadFile = File(...),
+    _payload: dict = Depends(require_permission(Permission.BOOKING_CHECKOUT)),
+    db: AsyncSession = Depends(get_db),
+):
+    booking = await db.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Booking not found",
+        )
+
+    extensions = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+    }
+    extension = extensions.get(file.content_type or "")
+    if extension is None:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Only JPG, PNG or WebP images are allowed",
+        )
+
+    content = await file.read(5 * 1024 * 1024 + 1)
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Each photo must be 5 MB or smaller",
+        )
+
+    target_dir = UPLOAD_ROOT / "inspections" / str(booking.id)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid4().hex}.{extension}"
+    (target_dir / filename).write_bytes(content)
+
+    return {
+        "data": {
+            "url": (
+                f"{request.base_url}uploads/inspections/"
+                f"{booking.id}/{filename}"
+            )
+        }
     }
 
 
