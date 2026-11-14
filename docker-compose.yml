@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: autohire-db
+    environment:
+      POSTGRES_USER: autohire
+      POSTGRES_PASSWORD: autohire
+      POSTGRES_DB: autohire
+    ports:
+      # Host 5433 avoids colliding with a system PostgreSQL on 5432.
+      - "5433:5432"
+    volumes:
+      - autohire_pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autohire -d autohire"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  autohire_pgdata:

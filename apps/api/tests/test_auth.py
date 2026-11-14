@@ -1,76 +1,86 @@
 import pytest
-import pytest_asyncio
-from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
 
-from app.core.database import Base, get_db
 from app.core.security import hash_password
-from app.main import app
 from app.models import User, UserRole
 
-EMAIL = "agent@autohire.co.ke"
+EMAIL = "owner@autohire.ke"
 PASSWORD = "MySecret123"
 
 
-@pytest_asyncio.fixture
-async def client():
-    # One shared in-memory SQLite database for the duration of the test.
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        poolclass=StaticPool,
+async def _seed_user(db_session, *, is_active=True, auth_version=1):
+    user = User(
+        email=EMAIL,
+        full_name="Test Owner",
+        password_hash=hash_password(PASSWORD),
+        role=UserRole.OWNER,
+        is_active=is_active,
+        auth_version=auth_version,
     )
+    db_session.add(user)
+    await db_session.commit()
+    return user
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
 
-    maker = async_sessionmaker(engine, expire_on_commit=False)
-    session = maker()
-
-    # Seed one active admin user with a real Argon2 hash.
-    session.add(
-        User(
-            email=EMAIL,
-            full_name="Test Agent",
-            password_hash=hash_password(PASSWORD),
-            role=UserRole.ADMIN,
-        )
+async def _login(client) -> dict:
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": EMAIL, "password": PASSWORD},
     )
-    await session.commit()
-
-    async def override_get_db():
-        yield session
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    # https base URL so the Secure cookie is stored and sent back.
-    test_client = TestClient(app, base_url="https://testserver")
-    yield test_client
-
-    app.dependency_overrides.clear()
-    await session.close()
-    await engine.dispose()
+    assert response.status_code == 200
+    return response.json()["data"]
 
 
-def test_login_sets_cookie_and_returns_user(client):
-    response = client.post(
+def _auth(token: str) -> dict:
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.mark.asyncio
+async def test_login_returns_memory_access_token_and_refresh_cookie(
+    db_session, api_client
+):
+    await _seed_user(db_session)
+
+    response = await api_client.post(
         "/api/v1/auth/login",
         json={"email": EMAIL, "password": PASSWORD},
     )
 
     assert response.status_code == 200
-    assert response.json()["email"] == EMAIL
-    assert response.json()["role"] == "admin"
-    assert "password_hash" not in response.json()
+    data = response.json()["data"]
+    assert data["access_token"]
+    assert data["token_type"] == "bearer"
+    assert data["expires_in"] == 900
+    assert data["user"]["email"] == EMAIL
+    assert data["user"]["role"] == "owner"
+    assert "password_hash" not in data["user"]
 
-    cookie = response.cookies.get("access_token")
-    assert cookie is not None
-    assert "HttpOnly" in response.headers["set-cookie"]
-    assert "SameSite=lax" in response.headers["set-cookie"]
+    # Access token is not stored in a cookie; refresh token is.
+    assert api_client.cookies.get("access_token") is None
+    assert api_client.cookies.get("refresh_token") is not None
+    set_cookie = response.headers["set-cookie"]
+    assert "HttpOnly" in set_cookie
+    assert "SameSite=lax" in set_cookie
 
 
-def test_login_with_wrong_password_returns_401(client):
-    response = client.post(
+@pytest.mark.asyncio
+async def test_me_uses_bearer_token(db_session, api_client):
+    await _seed_user(db_session)
+    data = await _login(api_client)
+
+    response = await api_client.get(
+        "/api/v1/auth/me",
+        headers=_auth(data["access_token"]),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["email"] == EMAIL
+
+
+@pytest.mark.asyncio
+async def test_login_with_wrong_password_returns_401(db_session, api_client):
+    await _seed_user(db_session)
+
+    response = await api_client.post(
         "/api/v1/auth/login",
         json={"email": EMAIL, "password": "WrongPassword"},
     )
@@ -78,14 +88,91 @@ def test_login_with_wrong_password_returns_401(client):
     assert response.status_code == 401
 
 
-def test_me_with_valid_cookie_returns_user(client):
-    client.post(
+@pytest.mark.asyncio
+async def test_login_rate_limit_returns_429(db_session, api_client):
+    await _seed_user(db_session)
+
+    for _ in range(5):
+        response = await api_client.post(
+            "/api/v1/auth/login",
+            json={"email": EMAIL, "password": "WrongPassword"},
+        )
+        assert response.status_code == 401
+
+    response = await api_client.post(
         "/api/v1/auth/login",
-        json={"email": EMAIL, "password": PASSWORD},
+        json={"email": EMAIL, "password": "WrongPassword"},
     )
 
-    response = client.get("/api/v1/auth/me")
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "rate_limited"
 
-    assert response.status_code == 200
-    assert response.json()["email"] == EMAIL
-    assert response.json()["full_name"] == "Test Agent"
+
+@pytest.mark.asyncio
+async def test_refresh_rotates_and_old_token_is_rejected(
+    db_session, api_client
+):
+    await _seed_user(db_session)
+    await _login(api_client)
+    old_refresh = api_client.cookies.get("refresh_token")
+
+    refreshed = await api_client.post("/api/v1/auth/refresh")
+    assert refreshed.status_code == 200
+    assert refreshed.json()["data"]["access_token"]
+    new_refresh = api_client.cookies.get("refresh_token")
+    assert new_refresh != old_refresh
+
+    # Reusing the rotated token must fail.
+    api_client.cookies.clear()
+    api_client.cookies.set("refresh_token", old_refresh)
+    reused = await api_client.post("/api/v1/auth/refresh")
+    assert reused.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_logout_revokes_refresh_token(db_session, api_client):
+    await _seed_user(db_session)
+    await _login(api_client)
+
+    logout = await api_client.post("/api/v1/auth/logout")
+    assert logout.status_code == 200
+
+    refreshed = await api_client.post("/api/v1/auth/refresh")
+    assert refreshed.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_deactivated_user_is_rejected_on_next_request(
+    db_session, api_client
+):
+    user = await _seed_user(db_session)
+    data = await _login(api_client)
+
+    user.is_active = False
+    await db_session.commit()
+
+    response = await api_client.get(
+        "/api/v1/auth/me",
+        headers=_auth(data["access_token"]),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["message"] == "Account is inactive"
+
+
+@pytest.mark.asyncio
+async def test_role_change_invalidates_existing_access_token(
+    db_session, api_client
+):
+    user = await _seed_user(db_session)
+    data = await _login(api_client)
+
+    user.auth_version += 1
+    await db_session.commit()
+
+    response = await api_client.get(
+        "/api/v1/auth/me",
+        headers=_auth(data["access_token"]),
+    )
+
+    assert response.status_code == 401

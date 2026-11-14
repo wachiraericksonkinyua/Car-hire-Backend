@@ -33,8 +33,10 @@ SessionLocal = async_sessionmaker(
 )
 
 
-# FastAPI dependency: open a session for one request, then always close it.
-# Routes declare `db: AsyncSession = Depends(get_db)` to receive a session.
+# FastAPI dependency: one transaction per request.
+# The transaction commits when the request succeeds and rolls back when it
+# raises. Services therefore flush instead of committing.
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with SessionLocal() as session:
-        yield session
+        async with session.begin():
+            yield session

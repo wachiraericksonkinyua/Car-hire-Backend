@@ -26,7 +26,10 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Read DATABASE_URL from .env / environment and hand it to Alembic.
-config.set_main_option("sqlalchemy.url", get_settings().DATABASE_URL)
+# Escape '%' because configparser uses it for interpolation and SQLAlchemy
+# URLs may contain percent-encoded passwords (e.g. %40 for '@').
+database_url = get_settings().DATABASE_URL.replace("%", "%%")
+config.set_main_option("sqlalchemy.url", database_url)
 
 # The metadata describing what the database *should* look like.
 target_metadata = Base.metadata

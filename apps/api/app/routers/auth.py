@@ -1,78 +1,182 @@
-"""Authentication routes: login sets a cookie, /me reads it back."""
+"""Authentication routes: login, refresh, logout, me.
 
-from uuid import UUID
+The access token is returned in the response body (the client keeps it in
+memory). The refresh token is set as an HttpOnly cookie, stored only as a hash,
+and rotated on every use.
+"""
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user_payload
+from app.api.deps import get_current_user
+from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.rate_limit import check_login_rate_limit, clear_login_rate_limit
 from app.core.security import create_access_token
 from app.models.user import User
-from app.schemas.auth import LoginRequest, UserResponse
-from app.services.auth_service import authenticate_user
+from app.schemas.auth import LoginRequest, TokenResponse, UserResponse
+from app.schemas.common import SuccessEnvelope
+from app.services.auth_service import (
+    authenticate_user,
+    find_refresh_token,
+    issue_refresh_token,
+    revoke_refresh_token,
+)
+from app.utils.time import as_utc, utc_now
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-# The cookie name the browser will store. HttpOnly means JavaScript cannot
-# read it, which protects the token from XSS-based theft.
-COOKIE_NAME = "access_token"
-COOKIE_MAX_AGE_SECONDS = 60 * 60  # one hour, matching the token lifetime
+REFRESH_COOKIE_NAME = "refresh_token"
+REFRESH_COOKIE_PATH = "/api/v1/auth"
 
 
-def _set_access_token_cookie(response: Response, token: str) -> None:
-    """Attach the JWT as a hardened, HttpOnly cookie."""
+def _set_refresh_cookie(response: Response, raw_token: str) -> None:
+    settings = get_settings()
     response.set_cookie(
-        key=COOKIE_NAME,
-        value=token,
-        max_age=COOKIE_MAX_AGE_SECONDS,
+        key=REFRESH_COOKIE_NAME,
+        value=raw_token,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         httponly=True,
         samesite="lax",
         secure=True,
-        path="/",
+        path=REFRESH_COOKIE_PATH,
     )
 
 
-@router.post("/login", response_model=UserResponse)
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=REFRESH_COOKIE_NAME,
+        path=REFRESH_COOKIE_PATH,
+    )
+
+
+def _token_response(user: User, access_token: str) -> dict:
+    settings = get_settings()
+    return {
+        "data": TokenResponse(
+            access_token=access_token,
+            expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            user=UserResponse.model_validate(user),
+        )
+    }
+
+
+@router.post("/login", response_model=SuccessEnvelope[TokenResponse])
 async def login(
     payload: LoginRequest,
+    request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
-    user = await authenticate_user(db, payload.email, payload.password)
+    settings = get_settings()
+    client_ip = request.client.host if request.client else "unknown"
+    rate_key = f"{client_ip}:{payload.email.lower()}"
+    check_login_rate_limit(
+        rate_key,
+        max_attempts=settings.LOGIN_RATE_LIMIT_ATTEMPTS,
+        window_seconds=settings.LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+    )
 
+    user = await authenticate_user(db, payload.email, payload.password)
     if user is None:
-        # Deliberately vague: do not reveal whether the email or password
-        # was the part that was wrong.
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
 
-    token = create_access_token(str(user.id), user.role.value)
-    _set_access_token_cookie(response, token)
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is inactive",
+        )
 
-    return user
+    clear_login_rate_limit(rate_key)
+    user.last_login_at = utc_now()
+
+    raw_refresh, _row = await issue_refresh_token(db, user)
+    await db.flush()
+
+    _set_refresh_cookie(response, raw_refresh)
+    access = create_access_token(
+        str(user.id), user.role.value, user.auth_version
+    )
+    return _token_response(user, access)
 
 
-@router.get("/me", response_model=UserResponse)
-async def read_current_user(
-    payload: dict = Depends(get_current_user_payload),
+@router.post("/refresh", response_model=SuccessEnvelope[TokenResponse])
+async def refresh_access_token(
+    response: Response,
+    refresh_token: str | None = Cookie(
+        default=None, alias=REFRESH_COOKIE_NAME
+    ),
     db: AsyncSession = Depends(get_db),
 ):
-    try:
-        user_id = UUID(payload["sub"])
-    except (KeyError, ValueError, TypeError):
+    if not refresh_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token subject",
+            detail="Missing refresh token",
         )
 
-    user = await db.get(User, user_id)
-    if user is None or not user.is_active:
+    row = await find_refresh_token(db, refresh_token)
+    if row is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or inactive",
+            detail="Invalid refresh token",
         )
 
-    return user
+    if row.revoked_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has been revoked",
+        )
+
+    if as_utc(row.expires_at) <= utc_now():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has expired",
+        )
+
+    user = await db.get(User, row.user_id)
+    if (
+        user is None
+        or not user.is_active
+        or row.auth_version != user.auth_version
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token is no longer valid",
+        )
+
+    new_raw, new_row = await issue_refresh_token(db, user)
+    row.revoked_at = utc_now()
+    row.replaced_by_id = new_row.id
+    await db.flush()
+
+    _set_refresh_cookie(response, new_raw)
+    access = create_access_token(
+        str(user.id), user.role.value, user.auth_version
+    )
+    return _token_response(user, access)
+
+
+@router.post("/logout", response_model=SuccessEnvelope[dict])
+async def logout(
+    response: Response,
+    refresh_token: str | None = Cookie(
+        default=None, alias=REFRESH_COOKIE_NAME
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    if refresh_token:
+        await revoke_refresh_token(db, refresh_token)
+        await db.flush()
+
+    _clear_refresh_cookie(response)
+    return {"data": {"message": "Logged out"}}
+
+
+@router.get("/me", response_model=SuccessEnvelope[UserResponse])
+async def read_current_user(
+    user: User = Depends(get_current_user),
+):
+    return {"data": user}

@@ -27,3 +27,12 @@ class UserResponse(BaseModel):
     full_name: str
     role: str
     is_active: bool
+
+
+class TokenResponse(BaseModel):
+    """Access token held in memory by the client, plus the current user."""
+
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user: UserResponse

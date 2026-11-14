@@ -29,17 +29,25 @@ def verify_password(plain: str, hashed: str) -> bool:
 def create_access_token(
     user_id: str,
     role: str,
-    expires_minutes: int = 60,
+    auth_version: int = 1,
+    expires_minutes: int | None = None,
 ) -> str:
-    """Create a signed JWT containing the user's id and role."""
+    """Create a short-lived signed JWT with the user's role and auth version."""
+    settings = get_settings()
+    minutes = (
+        expires_minutes
+        if expires_minutes is not None
+        else settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    )
     now = datetime.now(timezone.utc)
     payload = {
         "sub": str(user_id),
         "role": role,
+        "ver": auth_version,
         "iat": now,
-        "exp": now + timedelta(minutes=expires_minutes),
+        "exp": now + timedelta(minutes=minutes),
     }
-    return jwt.encode(payload, get_settings().JWT_SECRET, algorithm=ALGORITHM)
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=ALGORITHM)
 
 
 def decode_access_token(token: str) -> dict:
