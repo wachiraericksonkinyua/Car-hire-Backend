@@ -225,3 +225,39 @@ async def test_incident_permissions_and_validation(db_session, api_client):
         json={"dispatch_type": "InHouseRescue"},
     )
     assert dispatch.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_resolve_incident_releases_mechanic(db_session, api_client):
+    await _seed(db_session)
+    _login(api_client, AGENT_ID, "agent")
+    created = await api_client.post(
+        "/api/v1/incidents/breakdown",
+        json=_breakdown(requires_workshop=False),
+    )
+    incident_id = created.json()["data"]["id"]
+    dispatched = await api_client.patch(
+        f"/api/v1/incidents/{incident_id}/dispatch",
+        json={
+            "dispatch_type": "PartnerMechanic",
+            "mechanic_id": str(PARTNER_ID),
+        },
+    )
+    assert dispatched.status_code == 200
+
+    resolved = await api_client.patch(
+        f"/api/v1/incidents/{incident_id}/resolve",
+        json={"resolution_notes": "Vehicle recovered"},
+    )
+    assert resolved.status_code == 200
+    assert resolved.json()["data"]["status"] == "Resolved"
+
+    mechanic = await db_session.get(Mechanic, PARTNER_ID)
+    await db_session.refresh(mechanic)
+    assert mechanic.is_available is True
+
+    again = await api_client.patch(
+        f"/api/v1/incidents/{incident_id}/resolve",
+        json={"resolution_notes": "again"},
+    )
+    assert again.status_code == 409

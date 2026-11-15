@@ -32,6 +32,10 @@ class IncidentDispatchRequest(BaseModel):
         return self
 
 
+class IncidentResolveRequest(BaseModel):
+    resolution_notes: str | None = None
+
+
 class IncidentResponse(BaseModel):
     id: UUID
     vehicle_id: UUID

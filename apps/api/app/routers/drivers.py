@@ -10,17 +10,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.permissions import Permission, require_permission
 from app.models.booking import Booking, BookingStatus, TripStatus
-from app.models.driver import DriverProfile
-from app.models.user import User
+from app.models.driver import DriverProfile, DriverStatus
+from app.models.user import User, UserRole
 from app.models.vehicle import Vehicle
 from app.schemas.common import SuccessEnvelope
 from app.schemas.driver import (
+    DriverCreate,
     DriverResponse,
     DriverTripResponse,
+    DriverUpdate,
     TripStatusUpdate,
 )
 from app.services.audit_service import record_audit
 from app.services.driver_service import (
+    DRIVER_BLOCKING_STATUSES,
     available_drivers,
     driver_response,
     get_driver_profile,
@@ -77,6 +80,137 @@ async def list_drivers(
             driver_response(profile, user, today)
             for profile, user in rows
         ]
+    }
+
+
+@router.post("", response_model=SuccessEnvelope[DriverResponse])
+async def create_driver_profile(
+    data: DriverCreate,
+    request: Request,
+    payload: dict = Depends(require_permission(Permission.DRIVER_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await db.get(User, data.user_id)
+    if (
+        user is None
+        or not user.is_active
+        or user.role != UserRole.DRIVER
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="user_id must belong to an active driver account",
+        )
+
+    existing = await db.scalar(
+        select(DriverProfile.id).where(
+            DriverProfile.user_id == data.user_id
+        )
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This driver already has a profile",
+        )
+
+    profile = DriverProfile(**data.model_dump())
+    db.add(profile)
+    await db.flush()
+
+    await record_audit(
+        db,
+        actor_id=UUID(payload["sub"]),
+        action="driver.create",
+        entity="driver",
+        entity_id=str(profile.id),
+        after={
+            "user_id": str(profile.user_id),
+            "licence_class": profile.licence_class,
+            "status": profile.status.value,
+        },
+        request_id=getattr(request.state, "request_id", None),
+    )
+
+    await db.flush()
+    await db.refresh(profile)
+    return {
+        "data": driver_response(profile, user, utc_now().date())
+    }
+
+
+@router.patch("/{driver_id}", response_model=SuccessEnvelope[DriverResponse])
+async def update_driver_profile(
+    driver_id: UUID,
+    data: DriverUpdate,
+    request: Request,
+    payload: dict = Depends(require_permission(Permission.DRIVER_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+):
+    profile = await db.get(DriverProfile, driver_id)
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Driver profile not found",
+        )
+    user = await db.get(User, profile.user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Driver account not found",
+        )
+
+    changes = data.model_dump(exclude_unset=True)
+
+    if changes.get("status") == DriverStatus.OFF_DUTY:
+        active_trip = await db.scalar(
+            select(Booking.id)
+            .where(
+                Booking.driver_id == profile.id,
+                Booking.status.in_(DRIVER_BLOCKING_STATUSES),
+            )
+            .limit(1)
+        )
+        if active_trip is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "This driver has an active or upcoming trip and "
+                    "cannot be marked off duty"
+                ),
+            )
+
+    before = {
+        "licence_class": profile.licence_class,
+        "licence_expiry": profile.licence_expiry.isoformat(),
+        "psv_expiry": profile.psv_expiry.isoformat(),
+        "status": profile.status.value,
+        "languages": profile.languages,
+        "rating": profile.rating,
+    }
+    for field, value in changes.items():
+        setattr(profile, field, value)
+
+    await record_audit(
+        db,
+        actor_id=UUID(payload["sub"]),
+        action="driver.update",
+        entity="driver",
+        entity_id=str(profile.id),
+        before=before,
+        after={
+            "licence_class": profile.licence_class,
+            "licence_expiry": profile.licence_expiry.isoformat(),
+            "psv_expiry": profile.psv_expiry.isoformat(),
+            "status": profile.status.value,
+            "languages": profile.languages,
+            "rating": profile.rating,
+        },
+        request_id=getattr(request.state, "request_id", None),
+    )
+
+    await db.flush()
+    await db.refresh(profile)
+    return {
+        "data": driver_response(profile, user, utc_now().date())
     }
 
 

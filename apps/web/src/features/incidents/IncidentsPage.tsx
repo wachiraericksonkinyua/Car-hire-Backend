@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { AlertTriangle, Clock3, MapPin, Wrench } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { AlertTriangle, CheckCircle2, Clock3, MapPin, Wrench } from 'lucide-react'
+import { apiClient } from '../../api/client'
 import { useBookings, useDispatchIncident, useIncidents, useNearestMechanics, useVehicles } from '../../api/queries'
 import type { Incident, IncidentDispatchType, NearbyMechanic } from '../../api/types'
 import { Button, ConfirmDialog, Drawer, EmptyState, ErrorState, Select, Skeleton } from '../../components/ui'
+import { useAuth } from '../../hooks/AuthContext'
 import { formatEat, formatKes } from '../../lib'
 import { toLeaflet } from '../../lib/geo'
 import { approxDistanceLabel } from './incidentGeo'
@@ -34,10 +37,14 @@ function IncidentCard({ incident, onSelect }: { incident: Incident; onSelect: ()
 }
 
 export function IncidentsPage() {
+  const { role } = useAuth()
+  const queryClient = useQueryClient()
   const incidentsQuery = useIncidents()
   const bookingsQuery = useBookings()
   const vehiclesQuery = useVehicles()
   const dispatchMutation = useDispatchIncident()
+  const [resolving, setResolving] = useState(false)
+  const canResolve = role === 'owner' || role === 'manager' || role === 'agent'
   const [searchParams, setSearchParams] = useSearchParams()
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(() => searchParams.get('incidentId'))
   const [dispatchChoice, setDispatchChoice] = useState<IncidentDispatchType | null>(null)
@@ -81,6 +88,27 @@ export function IncidentsPage() {
     }
   }
 
+  async function resolveIncident() {
+    if (!selectedIncident) return
+    setResolving(true)
+    setDispatchError(null)
+    try {
+      await apiClient.patch(`/incidents/${encodeURIComponent(selectedIncident.id)}/resolve`, {
+        resolution_notes: 'Marked resolved from the operations dashboard.',
+      })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['incidents'] }),
+        queryClient.invalidateQueries({ queryKey: ['mechanics'] }),
+        queryClient.invalidateQueries({ queryKey: ['shell-notifications'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+      ])
+    } catch {
+      setDispatchError('Incident could not be resolved. Refresh and try again.')
+    } finally {
+      setResolving(false)
+    }
+  }
+
   if (incidentsQuery.isLoading) return <Skeleton rows={5} />
   if (incidentsQuery.isError) return <ErrorState onRetry={() => void incidentsQuery.refetch()} retryLabel="Retry" title="Incidents could not be loaded" />
 
@@ -96,6 +124,12 @@ export function IncidentsPage() {
         <p>{selectedIncident.description || 'No description provided.'}</p>
         <p className="incident-detail__location"><MapPin aria-hidden="true" size={16} />{selectedIncident.locationText}</p>
         <GeoMap center={selectedIncident.location} marker={{ point: selectedIncident.location, label: selectedIncident.locationText, tone: 'danger' }} zoom={14} />
+
+        {selectedIncident.status !== 'resolved' && canResolve && <section className="incident-detail-section">
+          <Button disabled={resolving} onClick={() => void resolveIncident()} variant="secondary"><CheckCircle2 aria-hidden="true" size={16} /> {resolving ? 'Resolving…' : 'Mark resolved'}</Button>
+          <p className="field__hint">Resolving releases the assigned partner mechanic back to the available pool.</p>
+          {dispatchError && <p className="field__error" role="alert">{dispatchError}</p>}
+        </section>}
 
         <section className="incident-detail-section"><h3>Photos</h3>
           {selectedIncident.photos.length ? <div className="incident-photo-grid">{selectedIncident.photos.map((photo, index) => <img alt={`Incident photo ${index + 1}`} key={`${photo.slice(0, 40)}-${index}`} src={photo} />)}</div> : <p>No photos attached.</p>}

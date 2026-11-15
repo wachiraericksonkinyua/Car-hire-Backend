@@ -16,6 +16,7 @@ from app.schemas.common import SuccessEnvelope
 from app.schemas.incident import (
     IncidentCreate,
     IncidentDispatchRequest,
+    IncidentResolveRequest,
     IncidentResponse,
 )
 from app.schemas.mechanic import GeoPoint
@@ -207,6 +208,62 @@ async def report_breakdown(
     return {
         "data": await _load_response(db, incident)
     }
+
+
+@router.patch(
+    "/{incident_id}/resolve",
+    response_model=SuccessEnvelope[IncidentResponse],
+)
+async def resolve_incident(
+    incident_id: UUID,
+    data: IncidentResolveRequest,
+    request: Request,
+    payload: dict = Depends(require_permission(Permission.INCIDENT_DISPATCH)),
+    db: AsyncSession = Depends(get_db),
+):
+    incident = await db.get(Incident, incident_id)
+    if incident is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Incident not found",
+        )
+    if incident.status == IncidentStatus.RESOLVED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Incident is already resolved",
+        )
+
+    before = {
+        "status": incident.status.value,
+        "mechanic_id": (
+            str(incident.mechanic_id) if incident.mechanic_id else None
+        ),
+    }
+    incident.status = IncidentStatus.RESOLVED
+    incident.resolved_at = utc_now()
+
+    if incident.mechanic_id is not None:
+        mechanic = await db.get(Mechanic, incident.mechanic_id)
+        if mechanic is not None:
+            mechanic.is_available = True
+
+    await record_audit(
+        db,
+        actor_id=UUID(payload["sub"]),
+        action="incident.resolve",
+        entity="incident",
+        entity_id=str(incident.id),
+        before=before,
+        after={
+            "status": incident.status.value,
+            "resolution_notes": data.resolution_notes,
+        },
+        request_id=getattr(request.state, "request_id", None),
+    )
+
+    await db.flush()
+    await db.refresh(incident)
+    return {"data": await _load_response(db, incident)}
 
 
 @router.patch(

@@ -288,7 +288,10 @@ Poll every ~3 seconds for up to ~2 minutes. Show:
 | GET | `/api/v1/incidents` | Breakdown board / SOS alerts | `incident:view` |
 | POST | `/api/v1/incidents/breakdown` | Report breakdown | `incident:create` |
 | PATCH | `/api/v1/incidents/{id}/dispatch` | Dispatch mechanic/rescue | `incident:dispatch` |
+| PATCH | `/api/v1/incidents/{id}/resolve` | Resolve + release mechanic | `incident:dispatch` |
 | GET | `/api/v1/drivers` | Driver roster | `driver:view` |
+| POST | `/api/v1/drivers` | Create driver profile | `driver:manage` |
+| PATCH | `/api/v1/drivers/{id}` | Edit licence/PSV/status | `driver:manage` |
 | GET | `/api/v1/drivers/available` | Assignment dialog | `driver:view` |
 | GET | `/api/v1/drivers/my-trips` | Driver mobile trip view | `trip:view-own` |
 | PATCH | `/api/v1/drivers/my-trips/{booking_id}` | Trip status buttons | `trip:view-own` |
@@ -504,8 +507,8 @@ These must be resolved before the frontend can be fully public/customer-facing:
 | No customer accounts | Guest lookup by reference + phone is implemented; no saved profile/history |
 | Admin maintenance/search richness | Maintenance windows are empty; search covers bookings + vehicles |
 | No vehicle photo upload/storage | Cards/details need placeholders |
-| No driver-profile API | Driver assignment needs a SQL insert |
-| No incident resolve endpoint | Mechanic cannot be automatically released |
+| ~~No driver-profile API~~ | Implemented: `POST/PATCH /api/v1/drivers` |
+| ~~No incident resolve endpoint~~ | Implemented: `PATCH /api/v1/incidents/{id}/resolve` releases the mechanic |
 | No staff edit/password change | Profile/password screens limited |
 | No payment list/refund workflow | Payments page limited to flags/polling |
 | Later-phase pages absent | Customers/KYC, payments reconciliation, maintenance board, reports, settings |

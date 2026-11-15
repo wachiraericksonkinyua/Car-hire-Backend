@@ -312,3 +312,79 @@ async def test_driver_endpoint_permissions(db_session, api_client):
     _login(api_client, AGENT_ID, "agent")
     mechanic = await api_client.get("/api/v1/drivers/my-trips")
     assert mechanic.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_driver_profile_create_update_and_offduty_guard(
+    db_session, api_client
+):
+    await _seed(db_session)
+    new_user_id = uuid.UUID("d6000000-0000-0000-0000-000000000006")
+    db_session.add(
+        User(
+            id=new_user_id,
+            email="driver6@autohire.ke",
+            full_name="Driver Six",
+            phone="254712345679",
+            password_hash="hashed-secret",
+            role=UserRole.DRIVER,
+        )
+    )
+    await db_session.commit()
+    _login(api_client, OWNER_ID, "owner")
+
+    created = await api_client.post(
+        "/api/v1/drivers",
+        json={
+            "user_id": str(new_user_id),
+            "licence_class": "D1",
+            "licence_expiry": "2030-01-01",
+            "psv_expiry": "2030-01-01",
+            "languages": ["English"],
+            "rating": 4.5,
+        },
+    )
+    assert created.status_code == 200
+    profile_id = created.json()["data"]["id"]
+
+    duplicate = await api_client.post(
+        "/api/v1/drivers",
+        json={
+            "user_id": str(new_user_id),
+            "licence_class": "D1",
+            "licence_expiry": "2030-01-01",
+            "psv_expiry": "2030-01-01",
+        },
+    )
+    assert duplicate.status_code == 409
+
+    updated = await api_client.patch(
+        f"/api/v1/drivers/{profile_id}",
+        json={"status": "OffDuty", "rating": 4.8},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["data"]["status"] == "OffDuty"
+
+    # An assigned/upcoming driver cannot be set off duty.
+    assigned = await api_client.patch(
+        f"/api/v1/bookings/{B1}/assign-driver",
+        json={"driver_id": str(P1)},
+    )
+    assert assigned.status_code == 200
+    blocked = await api_client.patch(
+        f"/api/v1/drivers/{P1}",
+        json={"status": "OffDuty"},
+    )
+    assert blocked.status_code == 409
+
+    _login(api_client, AGENT_ID, "agent")
+    forbidden = await api_client.post(
+        "/api/v1/drivers",
+        json={
+            "user_id": str(new_user_id),
+            "licence_class": "D1",
+            "licence_expiry": "2030-01-01",
+            "psv_expiry": "2030-01-01",
+        },
+    )
+    assert forbidden.status_code == 403

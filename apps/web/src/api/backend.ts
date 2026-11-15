@@ -211,6 +211,7 @@ function mapPricingSnapshot(snapshot: Record<string, unknown>): PricingSnapshot 
 export function mapDriver(driver: BackendDriver): Driver {
   return {
     id: driver.id,
+    userId: driver.user_id,
     name: driver.full_name,
     email: '',
     phone: driver.phone ?? '',

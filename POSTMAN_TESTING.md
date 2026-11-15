@@ -133,25 +133,23 @@ Driver user:
 Login as the agent and save `agent_token`; login as the driver and save
 `driver_token`.
 
-### 4.2 Driver profile (temporary SQL step)
+### 4.2 Driver profile
 
-There is **no driver-profile API yet**. In the Supabase SQL editor:
+`POST {{base_url}}/api/v1/drivers` with the **owner** token:
 
-```sql
-INSERT INTO driver_profiles
-  (id, user_id, licence_class, licence_expiry, psv_expiry, status, created_at)
-VALUES
-  (gen_random_uuid(),
-   '<driver-user-uuid>',
-   'D1',
-   '2030-01-01',
-   '2030-01-01',
-   'Available',
-   now())
-RETURNING id;
+```json
+{
+  "user_id": "<driver-user-uuid>",
+  "licence_class": "D1",
+  "licence_expiry": "2030-01-01",
+  "psv_expiry": "2030-01-01",
+  "languages": ["English", "Kiswahili"],
+  "rating": 4.8
+}
 ```
 
-Save the returned id as `driver_profile_id`.
+Save the returned `id` as `driver_profile_id`. Edit with
+`PATCH /api/v1/drivers/{id}` (licence/PSV/status/languages/rating).
 
 ### 4.3 Vehicle
 

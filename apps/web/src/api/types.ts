@@ -136,6 +136,7 @@ export interface User {
 
 export interface Driver extends User {
   role: 'driver'
+  userId?: string
   status: DriverStatus
   languages: string[]
   licenceClass: string

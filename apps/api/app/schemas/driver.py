@@ -4,7 +4,9 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.models.driver import DriverStatus
 
 
 class DriverResponse(BaseModel):
@@ -22,6 +24,25 @@ class DriverResponse(BaseModel):
     rating: float | None
     licence_expired: bool
     psv_expired: bool
+
+
+class DriverCreate(BaseModel):
+    user_id: UUID
+    licence_class: str
+    licence_expiry: date
+    psv_expiry: date
+    status: DriverStatus = DriverStatus.AVAILABLE
+    languages: list[str] | None = None
+    rating: float | None = Field(default=None, ge=0, le=5)
+
+
+class DriverUpdate(BaseModel):
+    licence_class: str | None = None
+    licence_expiry: date | None = None
+    psv_expiry: date | None = None
+    status: DriverStatus | None = None
+    languages: list[str] | None = None
+    rating: float | None = Field(default=None, ge=0, le=5)
 
 
 class AssignDriverRequest(BaseModel):
