@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
-import { DEMO_PASSWORD, users } from '../src/mocks/fixtures'
+import { DEMO_PASSWORD, users } from '@autohire/frontend/mocks/fixtures'
 
 const destinations = {
   owner: { path: '/admin', heading: 'Dashboard' },

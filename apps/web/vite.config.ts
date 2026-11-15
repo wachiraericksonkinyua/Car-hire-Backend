@@ -1,24 +1,20 @@
+import { fileURLToPath, URL } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vitest/config'
-
-const target = process.env.APP_TARGET === 'admin' ? 'admin' : 'web'
+import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   define: {
-    __APP_TARGET__: JSON.stringify(target),
+    __APP_TARGET__: JSON.stringify('web'),
   },
+  publicDir: fileURLToPath(
+    new URL('../../packages/frontend/public', import.meta.url),
+  ),
   server: {
-    port: target === 'admin' ? 5174 : 5173,
+    port: 5173,
   },
   build: {
-    outDir: `dist/${target}`,
-  },
-  test: {
-    environment: 'jsdom',
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
-    setupFiles: './src/test/setup.ts',
-    css: true,
+    outDir: 'dist',
   },
 })

@@ -1,57 +1,63 @@
-# AutoHire KE — Frontend
+# AutoHire KE — Customer Web
 
-React 19 + Vite frontend for AutoHire KE. The app builds two deployable
-targets from one codebase:
+Customer-facing React 19 + Vite app for AutoHire KE.
 
-| Target | Dev command | Port | Build output |
-|---|---|---|---|
-| Customer web | `npm run dev:web` | 5173 | `dist/web` |
-| Staff admin | `npm run dev:admin` | 5174 | `dist/admin` |
+| Item | Value |
+|---|---|
+| Dev command (from repo root) | `npm run dev:web` |
+| Dev URL | http://localhost:5173 |
+| Build output | `apps/web/dist` |
+| API | Public API under `/api/v1/public` |
+
+The staff back-office lives in `../admin`. Shared components, hooks, API
+adapters and types live in `../../packages/frontend`.
 
 ## Setup
+
+Install dependencies once from the repository root (npm workspaces):
 
 ```bash
 npm install
 ```
 
-## Customer web
+## Development
 
 ```bash
 npm run dev:web
 ```
 
-- Uses the public backend API (`/api/v1/public/...`) with **no mock service worker**.
-- Set the API URL in `.env.web` (default `http://localhost:8000/api/v1`).
-- Pages: home/catalogue, vehicle details, guest checkout, booking lookup.
+Environment variables default to `.env.development`:
 
-## Staff admin
-
-```bash
-npm run dev:admin
+```dotenv
+VITE_USE_MOCKS=false
+VITE_API_BASE_URL=http://localhost:8000/api/v1
 ```
 
-- Runs on port 5174 and uses the real backend (`.env.admin`, mocks off).
-- Login with `owner@autohire.ke` and the seeded owner password.
-- The API adapter maps snake_case/PascalCase backend responses to the UI's
-  camelCase/lowercase types.
-- Some advanced fields remain stubbed (maintenance windows, global search
-  richness, photo galleries); see `../api/FRONTEND_INTEGRATION.md`.
+Copy `.env.example` to `.env.local` to override locally.
 
-## Builds
+## Pages
+
+- home / catalogue
+- vehicle details
+- guest checkout
+- booking lookup by reference + phone
+- payment (STK) status polling
+- nearest mechanics
+
+## Build
 
 ```bash
-npm run build:web     # dist/web
-npm run build:admin   # dist/admin
-npm run preview:web
-npm run preview:admin
+npm run build:web     # from repo root
+# or
+npm run build         # inside apps/web
 ```
 
-Each build can be hosted independently (different domains/subdomains or
-different static hosts).
+Deploy the contents of `apps/web/dist` to any static host.
 
 ## Tests
 
 ```bash
 npm run type-check
-npm run test
+npm test              # shared unit tests, from repo root
+npm run test:e2e:web  # Playwright
 ```

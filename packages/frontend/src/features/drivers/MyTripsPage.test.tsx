@@ -2,10 +2,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Booking } from '../../api/types'
-import { useMyDriverTrips, useUpdateDriverTripStatus } from '../../api/queries'
+import { useCreateIncident, useMyDriverTrips, useUpdateDriverTripStatus } from '../../api/queries'
 import { MyTripsPage } from './MyTripsPage'
 
-vi.mock('../../api/queries', () => ({ useMyDriverTrips: vi.fn(), useUpdateDriverTripStatus: vi.fn() }))
+vi.mock('../../api/queries', () => ({ useCreateIncident: vi.fn(), useMyDriverTrips: vi.fn(), useUpdateDriverTripStatus: vi.fn() }))
 vi.mock('../../hooks/AuthContext', () => ({ useAuth: () => ({ user: { id: 'usr-04', name: 'Peter Mwangi' }, logout: vi.fn() }) }))
 
 const ownTrip: Booking = {
@@ -39,6 +39,7 @@ beforeEach(() => {
   mutateAsync.mockReset()
   mutateAsync.mockResolvedValue(ownTrip)
   vi.mocked(useUpdateDriverTripStatus).mockReturnValue({ mutateAsync, isPending: false } as never)
+  vi.mocked(useCreateIncident).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never)
 })
 
 function renderTrips() {

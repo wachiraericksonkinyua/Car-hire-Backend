@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
-import { DEMO_PASSWORD, users } from '../src/mocks/fixtures'
+import { DEMO_PASSWORD, users } from '@autohire/frontend/mocks/fixtures'
 
 test('public shell fits desktop width and shows primary routes', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })

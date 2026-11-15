@@ -3,7 +3,9 @@
 Car hire management platform for Kenya.
 
 - `apps/api` — FastAPI + async SQLAlchemy + PostgreSQL.
-- `apps/web` — React 19 + Vite dashboard/booking frontend.
+- `apps/web` — customer website (React 19 + Vite).
+- `apps/admin` — staff workspace (React 19 + Vite).
+- `packages/frontend` — shared React code used by both frontend apps.
 
 The backend is a single-tenant MVP. All application data lives in PostgreSQL.
 
@@ -12,8 +14,10 @@ The backend is a single-tenant MVP. All application data lives in PostgreSQL.
 The frontend was imported from
 `https://github.com/devmunguti/CarHire-frontend` at commit `426e379`.
 
+The two frontend apps are separate Vite builds that share
+`packages/frontend`. Install once from the repository root:
+
 ```bash
-cd apps/web
 npm install
 npm run dev:web     # customer app, http://localhost:5173
 npm run dev:admin   # staff app,    http://localhost:5174
@@ -22,13 +26,43 @@ npm run dev:admin   # staff app,    http://localhost:5174
 Two separately deployable builds:
 
 ```bash
-npm run build:web     # dist/web
-npm run build:admin   # dist/admin
+npm run build:web     # apps/web/dist
+npm run build:admin   # apps/admin/dist
 ```
 
 Both apps are wired to the backend. The customer app uses the public API; the
 admin app uses the authenticated staff API through a response adapter. See
 `apps/api/FRONTEND_INTEGRATION.md` for the remaining gaps.
+
+## Testing
+
+Backend (needs the local test PostgreSQL):
+
+```bash
+./scripts/dev_postgres.sh start
+cd apps/api
+./.venv/bin/pytest -q
+```
+
+Frontend unit tests and type checks:
+
+```bash
+npm run type-check
+npm test
+```
+
+Build verification:
+
+```bash
+npm run build
+```
+
+End-to-end smoke tests (Playwright starts each dev server automatically):
+
+```bash
+npm run test:e2e:web
+npm run test:e2e:admin
+```
 
 ## Requirements
 

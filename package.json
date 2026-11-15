@@ -1,0 +1,24 @@
+{
+  "name": "autohire-ke",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "workspaces": [
+    "packages/frontend",
+    "apps/web",
+    "apps/admin"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @autohire/web",
+    "dev:admin": "npm run dev -w @autohire/admin",
+    "build": "npm run type-check && npm run build:web && npm run build:admin",
+    "build:web": "npm run build -w @autohire/web",
+    "build:admin": "npm run build -w @autohire/admin",
+    "preview:web": "npm run preview -w @autohire/web",
+    "preview:admin": "npm run preview -w @autohire/admin",
+    "type-check": "npm run type-check -w @autohire/frontend",
+    "test": "npm run test -w @autohire/frontend",
+    "test:e2e:web": "npm run test:e2e -w @autohire/web",
+    "test:e2e:admin": "npm run test:e2e -w @autohire/admin"
+  }
+}

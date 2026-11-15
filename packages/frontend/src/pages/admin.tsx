@@ -553,16 +553,21 @@ export function StaffPage() {
 
 export function AuditPage() {
   const { user } = useAuth()
+
+  if (!user || user.role !== 'owner') {
+    return <section className="page-shell"><div className="card-panel"><h1>Access denied</h1><p>You must be an owner to view the audit log.</p></div></section>
+  }
+
+  return <AuditLogView />
+}
+
+function AuditLogView() {
   const [actorFilter, setActorFilter] = useState('all')
   const [actionFilter, setActionFilter] = useState('all')
   const [entityFilter, setEntityFilter] = useState('all')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
-
-  if (!user || user.role !== 'owner') {
-    return <section className="page-shell"><div className="card-panel"><h1>Access denied</h1><p>You must be an owner to view the audit log.</p></div></section>
-  }
 
   const auditQuery = useQuery({
     queryKey: ['audit'],

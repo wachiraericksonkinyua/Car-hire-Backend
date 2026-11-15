@@ -305,8 +305,10 @@ pytest -k "pricing or dashboard" -q
 
 ## 7a. Frontend (two deployables)
 
+The frontend is an npm workspace with two app shells (`apps/web`,
+`apps/admin`) sharing `packages/frontend`. Install once from the repo root:
+
 ```bash
-cd apps/web
 npm install
 
 npm run dev:web     # customer site, http://localhost:5173
@@ -316,12 +318,24 @@ npm run dev:admin   # staff back-office, http://localhost:5174
 Build separately:
 
 ```bash
-npm run build:web   # apps/web/dist/web
-npm run build:admin # apps/web/dist/admin
+npm run build:web   # apps/web/dist
+npm run build:admin # apps/admin/dist
 ```
 
-Both origins are in `CORS_ORIGINS`. The customer app uses the public API;
-the admin app currently defaults to MSW mocks while its adapter is completed.
+Both origins are in `CORS_ORIGINS`. Both apps use the real API; set
+`VITE_API_BASE_URL` in each app's `.env.local` if the API is not on
+`http://localhost:8000`.
+
+Optional demo data (users, vehicles, bookings, incidents, mechanics):
+
+```bash
+cd apps/api
+source .venv/bin/activate
+python -m scripts.seed_demo
+```
+
+All demo accounts use `AutoHireDemo123!`; the seeded owner is
+`amina@autohire.ke`.
 
 ## 8. Run the API
 

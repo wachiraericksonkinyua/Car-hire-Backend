@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { DEMO_PASSWORD, users } from '../src/mocks/fixtures'
+import { DEMO_PASSWORD, users } from '@autohire/frontend/mocks/fixtures'
 
 test('staff logs an SOS and dispatches the nearest partner mechanic', async ({ page }) => {
   const manager = users.find((user) => user.role === 'manager')!

@@ -4,14 +4,15 @@ This document maps the completed **AutoHire KE FastAPI backend** to the
 React 19 + Vite frontend.
 
 > **Current status**
-> - The frontend is split into **two deployable targets**: customer web
->   (`npm run dev:web`, port 5173) and staff admin (`npm run dev:admin`, 5174).
+> - The frontend is split into **two separate apps** in an npm workspace:
+>   `apps/web` (customer, port 5173) and `apps/admin` (staff, port 5174),
+>   sharing `packages/frontend`.
 > - A **public customer API** now exists under `/api/v1/public`: catalogue,
 >   vehicle detail, quotes, guest booking creation, booking lookup by
 >   reference + phone, STK push, payment polling and nearest mechanics.
 > - The **customer web pages are connected** to those public endpoints.
 > - The **admin app is wired to the real staff API** through a response adapter
->   (`apps/web/src/api/backend.ts` and `queries.ts`): auth, dashboard, fleet,
+>   (`packages/frontend/src/api/backend.ts` and `queries.ts`): auth, dashboard, fleet,
 >   bookings, approvals, handover, payments, drivers, mechanics, incidents,
 >   staff and audit.
 > - There are still **no customer accounts**. Guest lookup uses booking

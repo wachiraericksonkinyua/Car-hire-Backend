@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Booking, Vehicle } from '../../api/types'
-import { useBookingList, useMaintenanceWindows, useVehicles } from '../../api/queries'
+import { useBookingList, useIncidents, useMaintenanceWindows, useVehicles } from '../../api/queries'
 import { TimelinePage } from './TimelinePage'
 
 type MockTimelineProps = {
@@ -15,6 +15,7 @@ type MockTimelineProps = {
 
 vi.mock('../../api/queries', () => ({
   useBookingList: vi.fn(),
+  useIncidents: vi.fn(),
   useMaintenanceWindows: vi.fn(),
   useVehicles: vi.fn(),
 }))
@@ -76,6 +77,7 @@ beforeEach(() => {
   vi.mocked(useBookingList).mockReturnValue({ data: [booking], isLoading: false, isError: false, refetch: vi.fn() } as never)
   vi.mocked(useVehicles).mockReturnValue({ data: [vehicle], isLoading: false, isError: false, refetch: vi.fn() } as never)
   vi.mocked(useMaintenanceWindows).mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() } as never)
+  vi.mocked(useIncidents).mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() } as never)
 })
 
 describe('fleet timeline interactions', () => {

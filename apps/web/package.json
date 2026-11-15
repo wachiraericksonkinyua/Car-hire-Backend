@@ -1,75 +1,27 @@
 {
-  "name": "autohire-frontend",
+  "name": "@autohire/web",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "APP_TARGET=web vite --mode web",
-    "dev:web": "APP_TARGET=web vite --mode web --port 5173",
-    "dev:admin": "APP_TARGET=admin vite --mode admin --port 5174",
-    "build": "npm run type-check && npm run build:web && npm run build:admin",
-    "build:web": "APP_TARGET=web vite --mode web build",
-    "build:admin": "APP_TARGET=admin vite --mode admin build",
-    "preview:web": "APP_TARGET=web vite --mode web preview --port 4173",
-    "preview:admin": "APP_TARGET=admin vite --mode admin preview --port 4174",
-    "lint": "eslint .",
+    "dev": "vite --port 5173",
+    "build": "npm run type-check && vite build",
+    "preview": "vite preview --port 4173",
     "type-check": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:e2e": "playwright test",
-    "format": "prettier --write ."
+    "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@hookform/resolvers": "7.0.6",
-    "@tailwindcss/vite": "4.3.5",
-    "@tanstack/react-query": "5.107.1",
-    "date-fns": "4.4.0",
-    "date-fns-tz": "3.2.0",
-    "dayjs": "^1.11.13",
-    "interactjs": "^1.10.27",
-    "leaflet": "1.9.4",
-    "lucide-react": "1.72.0",
-    "react": "19.3.1",
-    "react-calendar": "6.0.1",
-    "react-calendar-timeline": "^0.30.0-beta.4",
-    "react-dom": "19.3.1",
-    "react-hook-form": "7.92.0",
-    "react-leaflet": "^5.0.0",
-    "react-router-dom": "7.18.5",
-    "recharts": "3.10.1",
-    "tailwindcss": "4.3.5",
-    "zod": "4.6.7"
+    "@autohire/frontend": "*"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
-    "@eslint/js": "10.0.1",
     "@playwright/test": "1.65.1",
-    "@testing-library/jest-dom": "7.0.1",
-    "@testing-library/react": "16.3.3",
-    "@testing-library/user-event": "14.6.10",
-    "@types/leaflet": "1.9.22",
+    "@tailwindcss/vite": "4.3.5",
     "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.3.0",
-    "@vitest/coverage-v8": "5.1.0",
-    "eslint": "10.15.0",
-    "eslint-config-prettier": "10.1.8",
-    "eslint-plugin-react-hooks": "7.1.1",
-    "eslint-plugin-react-refresh": "0.5.7",
-    "globals": "17.14.0",
-    "jsdom": "31.0.1",
-    "msw": "3.0.5",
-    "prettier": "3.10.1",
-    "prettier-plugin-tailwindcss": "0.8.1",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.72.2",
-    "vite": "8.3.8",
-    "vitest": "5.1.0"
-  },
-  "msw": {
-    "workerDirectory": [
-      "public"
-    ]
+    "vite": "8.3.8"
   }
 }
