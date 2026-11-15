@@ -63,6 +63,7 @@ class PaymentStatusResponse(BaseModel):
     booking_id: UUID
     checkout_request_id: str
     status: str
+    booking_status: str | None = None
     amount_due_kes: int
     amount_paid_kes: int
     amount_mismatch: bool

@@ -47,6 +47,9 @@ class DriverProfile(Base):
     languages: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     rating: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    # Optional driver photo served from /uploads.
+    photo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

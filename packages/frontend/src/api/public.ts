@@ -149,6 +149,7 @@ export function pollPublicPayment(checkoutRequestId: string, reference: string, 
   return apiClient.get<{
     checkout_request_id: string
     status: string
+    booking_status: string
     amount_due_kes: number
     amount_paid_kes: number
     amount_mismatch: boolean

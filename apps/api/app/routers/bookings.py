@@ -218,6 +218,13 @@ async def get_booking(
 
     booking, vehicle, creator = row
     base = BookingResponse.model_validate(booking)
+    inspections = (
+        await db.scalars(
+            select(Inspection)
+            .where(Inspection.booking_id == booking.id)
+            .order_by(Inspection.created_at.asc())
+        )
+    ).all()
     return {
         "data": BookingDetailResponse(
             **base.model_dump(),
@@ -235,6 +242,10 @@ async def get_booking(
                 if creator is not None
                 else None
             ),
+            inspections=[
+                InspectionResponse.model_validate(inspection)
+                for inspection in inspections
+            ],
         )
     }
 

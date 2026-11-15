@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.permissions import Permission, require_permission
+from app.models.booking import Booking
 from app.models.payment import Payment
 from app.schemas.common import SuccessEnvelope
 from app.schemas.payment import (
@@ -85,12 +86,14 @@ async def get_payment_status(
             detail="Payment not found",
         )
 
+    booking = await db.get(Booking, payment.booking_id)
     return {
         "data": PaymentStatusResponse(
             payment_id=payment.id,
             booking_id=payment.booking_id,
             checkout_request_id=payment.checkout_request_id,
             status=payment.status.value,
+            booking_status=booking.status.value if booking else None,
             amount_due_kes=payment.amount_due_kes,
             amount_paid_kes=payment.amount_kes,
             amount_mismatch=payment.amount_mismatch,
@@ -128,12 +131,14 @@ async def mpesa_callback(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         )
 
+    booking = await db.get(Booking, payment.booking_id)
     # Returning 200 tells Safaricom we processed the callback.
     return {
         "data": {
             "ResultCode": 0,
             "ResultDesc": "Callback processed",
             "status": payment.status.value,
+            "booking_status": booking.status.value if booking else None,
             "mpesa_receipt": payment.mpesa_receipt,
             "amount_mismatch": payment.amount_mismatch,
             "refund_required": payment.refund_required,

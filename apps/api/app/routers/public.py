@@ -464,6 +464,7 @@ async def public_payment_status(
         "data": PublicPaymentStatus(
             checkout_request_id=payment.checkout_request_id,
             status=payment.status.value,
+            booking_status=booking.status.value,
             amount_due_kes=payment.amount_due_kes,
             amount_paid_kes=payment.amount_kes,
             amount_mismatch=payment.amount_mismatch,

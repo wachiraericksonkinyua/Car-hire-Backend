@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { AlertTriangle, Camera, MapPin, Phone } from 'lucide-react'
-import { useCreateIncident } from '../../api/queries'
+import { useCreateIncident, useVehicles } from '../../api/queries'
 import type { IncidentCategory, IncidentCreateRequest } from '../../api/types'
 import { Button, Input, Modal, Select } from '../../components/ui'
 import { toGeoJson, type GeoJsonPoint } from '../../lib/geo'
@@ -26,6 +26,8 @@ function readPhoto(file: File): Promise<string> {
 
 export function SOSButton({ source, vehicleId, label = 'SOS' }: { source: IncidentCreateRequest['source']; vehicleId?: string; label?: string }) {
   const createIncident = useCreateIncident()
+  const vehiclesQuery = useVehicles({ enabled: !vehicleId })
+  const [selectedVehicleId, setSelectedVehicleId] = useState(vehicleId ?? '')
   const [open, setOpen] = useState(false)
   const [location, setLocation] = useState<GeoJsonPoint | null>(null)
   const [gpsState, setGpsState] = useState<'idle' | 'loading' | 'ready' | 'denied'>('idle')
@@ -58,6 +60,7 @@ export function SOSButton({ source, vehicleId, label = 'SOS' }: { source: Incide
     setLocation(null)
     setLocationText('')
     setGpsState('idle')
+    setSelectedVehicleId(vehicleId ?? '')
     setManualPinMode(source === 'desk')
     if (source !== 'desk') requestGps()
   }
@@ -69,6 +72,8 @@ export function SOSButton({ source, vehicleId, label = 'SOS' }: { source: Incide
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const effectiveVehicleId = vehicleId ?? selectedVehicleId
+    if (!effectiveVehicleId) { setError('Select the vehicle involved before sending.'); return }
     const submittedLocation = location ?? (locationText.trim() ? nairobiFallback : null)
     if (!submittedLocation) { setError('Set a GPS location, place a pin, or enter a road, landmark or town.'); return }
     setError(null)
@@ -79,7 +84,7 @@ export function SOSButton({ source, vehicleId, label = 'SOS' }: { source: Incide
         description: description.trim(),
         location: submittedLocation,
         locationText: locationText.trim() || (gpsState === 'ready' ? 'GPS location' : 'Manually placed pin'),
-        vehicleId,
+        vehicleId: effectiveVehicleId,
         immobilising,
         photos: photoData,
         source,
@@ -96,6 +101,15 @@ export function SOSButton({ source, vehicleId, label = 'SOS' }: { source: Incide
     <Button className="sos-trigger" onClick={showForm} variant="danger"><AlertTriangle aria-hidden="true" size={17} />{label}</Button>
     {open && <Modal open title="Send SOS" onClose={() => setOpen(false)}>
       <form className="sos-form" onSubmit={(event) => void submit(event)}>
+        {!vehicleId && <Select
+          label="Vehicle involved"
+          onChange={(event) => setSelectedVehicleId(event.target.value)}
+          options={[
+            { value: '', label: vehiclesQuery.isLoading ? 'Loading vehicles…' : 'Select vehicle' },
+            ...(vehiclesQuery.data ?? []).map((vehicle) => ({ value: vehicle.id, label: `${vehicle.registration} — ${vehicle.make} ${vehicle.model}` })),
+          ]}
+          value={selectedVehicleId}
+        />}
         <Select label="Issue category" onChange={(event) => setCategory(event.target.value as IncidentCategory)} options={incidentCategories} value={category} />
         <label className="field"><span className="field__label">Describe the issue</span><textarea className="control sos-description" onChange={(event) => setDescription(event.target.value)} value={description} /></label>
         {gpsState === 'loading' && <p role="status">Getting your GPS location…</p>}
@@ -107,7 +121,7 @@ export function SOSButton({ source, vehicleId, label = 'SOS' }: { source: Incide
         <GeoMap center={location ?? nairobiFallback} marker={location ? { point: location, label: locationText || 'Incident location', tone: 'danger' } : undefined} onPlace={(point) => { setLocation(point); setGpsState('denied') }} placementEnabled={manualPinMode || gpsState === 'denied'} zoom={13} />
         {(gpsState === 'denied' || manualPinMode) && <Input label="Location or landmark" onChange={(event) => setLocationText(event.target.value)} placeholder="Street, landmark or town" value={locationText} />}
         <div className="field"><span className="field__label">Photos</span><label className="sos-photo-picker"><Camera aria-hidden="true" size={17} /> Add photos<input accept="image/*" capture="environment" multiple onChange={onPhotos} type="file" /></label>{photos.map((photo) => <small key={`${photo.name}-${photo.lastModified}`}>{photo.name}</small>)}</div>
-        {vehicleId && <label className="choice"><input checked={immobilising} onChange={(event) => setImmobilising(event.target.checked)} type="checkbox" /><span>Vehicle cannot be driven</span></label>}
+        {(vehicleId || selectedVehicleId) && <label className="choice"><input checked={immobilising} onChange={(event) => setImmobilising(event.target.checked)} type="checkbox" /><span>Vehicle cannot be driven</span></label>}
         {error && <p className="field__error" role="alert">{error}</p>}
         <div className="confirm-dialog__actions"><Button onClick={() => setOpen(false)} variant="secondary">Cancel</Button><Button disabled={createIncident.isPending || gpsState === 'loading'} type="submit" variant="danger">{createIncident.isPending ? 'Sending…' : 'Send SOS'}</Button></div>
       </form>

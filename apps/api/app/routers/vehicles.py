@@ -4,12 +4,15 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.permissions import Permission, require_permission
+from app.models.booking import Booking
+from app.models.incident import Incident
 from app.models.vehicle import Vehicle, VehicleStatus
+from app.models.vehicle_photo import VehiclePhoto
 from app.schemas.common import SuccessEnvelope
 from app.schemas.vehicle import (
     BookedRange,
@@ -333,3 +336,62 @@ async def update_vehicle(
     await db.flush()
     await db.refresh(vehicle)
     return {"data": _to_response(vehicle, derived=vehicle.status.value)}
+
+
+@router.delete("/{vehicle_id}")
+async def delete_vehicle(
+    vehicle_id: UUID,
+    request: Request,
+    payload: dict = Depends(require_permission(Permission.VEHICLE_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a vehicle that has never been booked or involved in an incident."""
+    vehicle = await db.get(Vehicle, vehicle_id)
+    if vehicle is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vehicle not found",
+        )
+
+    has_booking = await db.scalar(
+        select(Booking.id).where(Booking.vehicle_id == vehicle_id).limit(1)
+    )
+    if has_booking is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "This vehicle has booking history and cannot be deleted. "
+                "Set it to Maintenance instead."
+            ),
+        )
+
+    has_incident = await db.scalar(
+        select(Incident.id).where(Incident.vehicle_id == vehicle_id).limit(1)
+    )
+    if has_incident is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "This vehicle has incident history and cannot be deleted. "
+                "Set it to Maintenance instead."
+            ),
+        )
+
+    before = snapshot(vehicle, _AUDITED_FIELDS)
+    await db.execute(
+        delete(VehiclePhoto).where(VehiclePhoto.vehicle_id == vehicle_id)
+    )
+    await db.delete(vehicle)
+
+    await record_audit(
+        db,
+        actor_id=UUID(payload["sub"]),
+        action="vehicle.delete",
+        entity="vehicle",
+        entity_id=str(vehicle_id),
+        before=before,
+        request_id=getattr(request.state, "request_id", None),
+    )
+
+    await db.flush()
+    return {"data": {"id": str(vehicle_id), "deleted": True}}

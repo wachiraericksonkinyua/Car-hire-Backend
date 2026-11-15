@@ -2,7 +2,16 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +20,7 @@ from app.core.permissions import Permission, require_permission
 from app.core.security import hash_password
 from app.models.user import User, UserRole
 from app.schemas.common import SuccessEnvelope
+from app.services.image_service import delete_image_file, store_image
 from app.schemas.staff import (
     StaffCreate,
     StaffResponse,
@@ -240,4 +250,81 @@ async def change_staff_status(
 
     await db.flush()
     await db.refresh(target)
+    return {"data": target}
+
+
+@router.post(
+    "/{staff_id}/photo", response_model=SuccessEnvelope[StaffResponse]
+)
+async def upload_staff_photo(
+    staff_id: UUID,
+    request: Request,
+    file: UploadFile = File(...),
+    payload: dict = Depends(require_permission(Permission.STAFF_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload or replace a staff member's profile image."""
+    actor_id, actor_role = _actor(payload)
+    target = await _get_staff_or_404(db, staff_id)
+
+    if actor_role == UserRole.MANAGER.value and target.role == UserRole.OWNER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="A manager cannot modify an owner",
+        )
+
+    url = await store_image(
+        file, request=request, folder="staff", owner_id=target.id
+    )
+    previous = target.avatar_url
+    target.avatar_url = url
+
+    await record_audit(
+        db,
+        actor_id=actor_id,
+        action="staff.photo-update",
+        entity="user",
+        entity_id=str(target.id),
+        after={"avatar_url": url},
+        request_id=getattr(request.state, "request_id", None),
+    )
+    await db.flush()
+    await db.refresh(target)
+    delete_image_file(previous)
+    return {"data": target}
+
+
+@router.delete(
+    "/{staff_id}/photo", response_model=SuccessEnvelope[StaffResponse]
+)
+async def remove_staff_photo(
+    staff_id: UUID,
+    request: Request,
+    payload: dict = Depends(require_permission(Permission.STAFF_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+):
+    actor_id, actor_role = _actor(payload)
+    target = await _get_staff_or_404(db, staff_id)
+
+    if actor_role == UserRole.MANAGER.value and target.role == UserRole.OWNER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="A manager cannot modify an owner",
+        )
+
+    previous = target.avatar_url
+    target.avatar_url = None
+
+    await record_audit(
+        db,
+        actor_id=actor_id,
+        action="staff.photo-remove",
+        entity="user",
+        entity_id=str(target.id),
+        before={"avatar_url": previous},
+        request_id=getattr(request.state, "request_id", None),
+    )
+    await db.flush()
+    await db.refresh(target)
+    delete_image_file(previous)
     return {"data": target}

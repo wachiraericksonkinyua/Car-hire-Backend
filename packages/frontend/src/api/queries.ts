@@ -84,13 +84,14 @@ export function useHealth() {
   return useQuery({ queryKey: ['health'], queryFn: () => apiClient.get<HealthStatus>('/health') })
 }
 
-export function useVehicles() {
+export function useVehicles(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['vehicles', __APP_TARGET__],
     queryFn: async () => {
       const data = await apiClient.get<{ items: BackendVehicle[] }>(`${isWeb ? '/public' : ''}/vehicles?limit=100`)
       return data.items.map(mapVehicle)
     },
+    enabled: options?.enabled ?? true,
   })
 }
 

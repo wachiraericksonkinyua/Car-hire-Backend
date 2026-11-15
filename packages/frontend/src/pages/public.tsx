@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatInTimeZone } from 'date-fns-tz'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
@@ -88,6 +88,10 @@ export function VehiclesPage() {
         <h1>Find your next car</h1>
         <p>Choose your dates, compare the fleet and book online.</p>
       </header>
+
+      <p className="customer-inventory-count" role="status">
+        {vehicles.isLoading ? 'Checking availability…' : `${vehicles.data?.items.length ?? 0} cars available for these dates`}
+      </p>
 
       <div className="customer-filter-bar">
         <label>Pickup<input type="datetime-local" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
@@ -183,6 +187,7 @@ export function VehicleDetailsPage() {
 }
 
 export function CheckoutPage() {
+  const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const vehicleId = searchParams.get('vehicleId') ?? ''
   const pickup = searchParams.get('pickup') ?? ''
@@ -229,6 +234,10 @@ export function CheckoutPage() {
       })
       setBooking(result)
       setPayPhone(normalisePhone(customer.phone))
+      // Refresh the catalogue immediately so the reserved car disappears
+      // from the "available" list without a manual reload.
+      await queryClient.invalidateQueries({ queryKey: ['public-vehicles'] })
+      await queryClient.invalidateQueries({ queryKey: ['public-vehicle'] })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create booking')
     } finally {
@@ -330,7 +339,7 @@ export function BookingPage() {
         {booking.isError && <p className="customer-error">{booking.error instanceof Error ? booking.error.message : 'Booking not found'}</p>}
         {booking.data && <>
           <h2>{booking.data.reference}</h2>
-          <p>Status: <strong>{booking.data.status}</strong></p>
+          <p>Status: <strong>{payment.data?.booking_status ?? booking.data.status}</strong></p>
           <p>Vehicle: {booking.data.vehicle_id}</p>
           <p>Pickup: {formatEat(booking.data.pickup_at)}</p>
           <p>Return: {formatEat(booking.data.return_at)}</p>

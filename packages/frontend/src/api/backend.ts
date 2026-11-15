@@ -26,6 +26,7 @@ export interface BackendVehicle {
   daily_rate_kes: number
   deposit_kes: number
   mileage_cap_km: number
+  insurance_expiry: string
   status: string
 }
 
@@ -52,6 +53,18 @@ export interface BackendBooking {
   vehicle_plate?: string
   vehicle_model?: string
   created_by?: { id: string; full_name: string } | null
+  inspections?: {
+    id: string
+    kind: string
+    fuel_percent: number
+    odometer_km: number
+    photos: string[] | null
+    notes: string | null
+    signature: string | null
+    confirmation: boolean
+    critical_defect: boolean
+    created_at: string
+  }[]
 }
 
 export interface BackendDriver {
@@ -65,6 +78,7 @@ export interface BackendDriver {
   status: string
   languages: string[] | null
   rating: number | null
+  photo_url: string | null
   licence_expired: boolean
   psv_expired: boolean
 }
@@ -160,10 +174,23 @@ export function mapVehicle(vehicle: BackendVehicle): Vehicle {
     year: vehicle.year,
     registration: vehicle.plate_number,
     seats: vehicle.seats,
+    bags: vehicle.bags,
+    fuel: vehicle.fuel,
     transmission: vehicle.transmission.toLowerCase() === 'manual' ? 'manual' : 'automatic',
     ratePerDay: vehicle.daily_rate_kes,
+    depositKes: vehicle.deposit_kes,
+    mileageCapKm: vehicle.mileage_cap_km,
+    insuranceExpiry: vehicle.insurance_expiry,
     status: vehicle.status === 'Maintenance' ? 'maintenance' : vehicle.status === 'Available' ? 'available' : 'booked',
   }
+}
+
+function fuelLevelLabel(percent: number): string {
+  if (percent >= 100) return 'full'
+  if (percent >= 75) return 'three_quarters'
+  if (percent >= 50) return 'half'
+  if (percent >= 25) return 'quarter'
+  return 'empty'
 }
 
 export function mapBooking(booking: BackendBooking): Booking {
@@ -189,6 +216,17 @@ export function mapBooking(booking: BackendBooking): Booking {
     pricingSnapshot: snapshot ? mapPricingSnapshot(snapshot) : undefined,
     vehicleRegistration: booking.vehicle?.plate_number ?? booking.vehicle_plate,
     driverTripStatus: booking.trip_status ? driverTripStatusMap[booking.trip_status] : undefined,
+    inspections: (booking.inspections ?? []).map((inspection) => ({
+      id: inspection.id,
+      type: inspection.kind === 'CheckOut' ? 'check_out' : 'check_in',
+      odometer: inspection.odometer_km,
+      fuelLevel: fuelLevelLabel(inspection.fuel_percent),
+      createdAt: inspection.created_at,
+      notes: inspection.notes ?? undefined,
+      photos: inspection.photos ?? undefined,
+      signatureConfirmed: inspection.confirmation,
+      criticalDefect: inspection.critical_defect,
+    })),
   }
 }
 
@@ -223,6 +261,7 @@ export function mapDriver(driver: BackendDriver): Driver {
     licenceExpiresAt: driver.licence_expiry,
     psvExpiresAt: driver.psv_expiry,
     rating: driver.rating ?? 0,
+    photoUrl: driver.photo_url ?? undefined,
   }
 }
 

@@ -388,3 +388,33 @@ async def test_driver_profile_create_update_and_offduty_guard(
         },
     )
     assert forbidden.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_driver_photo_and_delete_profile(db_session, api_client):
+    await _seed(db_session)
+    _login(api_client, OWNER_ID, "owner")
+
+    uploaded = await api_client.post(
+        f"/api/v1/drivers/{P1}/photo",
+        files={"file": ("driver.png", b"\x89PNG\r\n\x1a\n", "image/png")},
+    )
+    assert uploaded.status_code == 200
+    assert "/uploads/drivers/" in uploaded.json()["data"]["photo_url"]
+
+    removed = await api_client.delete(f"/api/v1/drivers/{P1}/photo")
+    assert removed.status_code == 200
+    assert removed.json()["data"]["photo_url"] is None
+
+    # A driver without booking history can be deleted.
+    deleted = await api_client.delete(f"/api/v1/drivers/{P1}")
+    assert deleted.status_code == 200
+    assert deleted.json()["data"]["deleted"] is True
+
+    # A driver assigned to a booking cannot be deleted.
+    blocked = await api_client.delete(f"/api/v1/drivers/{P5}")
+    assert blocked.status_code == 409
+
+    _login(api_client, AGENT_ID, "agent")
+    forbidden = await api_client.delete(f"/api/v1/drivers/{P2}")
+    assert forbidden.status_code == 403

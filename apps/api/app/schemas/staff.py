@@ -37,6 +37,7 @@ class StaffResponse(BaseModel):
     email: str
     full_name: str
     phone: str | None
+    avatar_url: str | None = None
     role: str
     is_active: bool
     last_login_at: datetime | None

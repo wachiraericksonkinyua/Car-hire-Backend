@@ -137,6 +137,7 @@ export interface User {
 export interface Driver extends User {
   role: 'driver'
   userId?: string
+  photoUrl?: string
   status: DriverStatus
   languages: string[]
   licenceClass: string
@@ -155,6 +156,7 @@ export interface StaffMember extends User {
   branch: string
   active: boolean
   lastLogin: string
+  avatarUrl?: string
 }
 
 export interface AuditEntry {
@@ -175,8 +177,13 @@ export interface Vehicle {
   year: number
   registration: string
   seats: number
+  bags?: number
+  fuel?: string
   transmission: 'automatic' | 'manual'
   ratePerDay: number
+  depositKes?: number
+  mileageCapKm?: number
+  insuranceExpiry?: string
   status: VehicleStatus
 }
 

@@ -4,7 +4,7 @@ import { Button, ConfirmDialog, DataTable, Input, Modal, Select, Toast } from '.
 import { useAuth } from '../hooks/AuthContext'
 import { canApproveBooking } from '../hooks/useCan'
 import { useTranslation } from '../i18n'
-import type { AuditEntry, Booking, PaymentMethod, StaffMember, UserRole } from '../api/types'
+import type { AuditEntry, Booking, PaymentMethod, StaffMember, UserRole, Vehicle } from '../api/types'
 import { apiClient } from '../api/client'
 import { useBookingList, useVehicles } from '../api/queries'
 import { formatKes } from '../lib'
@@ -15,6 +15,7 @@ interface BackendStaff {
   email: string
   full_name: string
   phone: string | null
+  avatar_url: string | null
   role: UserRole
   is_active: boolean
   last_login_at: string | null
@@ -112,9 +113,35 @@ export function FleetPage() {
   const [form, setForm] = useState(emptyVehicle)
   const [notice, setNotice] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [editing, setEditing] = useState<Vehicle | null>(null)
+  const [deleting, setDeleting] = useState<Vehicle | null>(null)
+  const [editForm, setEditForm] = useState<Record<string, string | number>>({})
 
   async function refresh() {
-    await queryClient.invalidateQueries({ queryKey: ['vehicles'] })
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+      queryClient.invalidateQueries({ queryKey: ['available-vehicles'] }),
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+    ])
+  }
+
+  function vehiclePayload(values: Record<string, string | number>, includePlate = true) {
+    return {
+      ...(includePlate ? { plate_number: String(values.plate_number ?? '') } : {}),
+      brand: String(values.brand ?? ''),
+      model: String(values.model ?? ''),
+      year: Number(values.year),
+      category: String(values.category ?? ''),
+      transmission: String(values.transmission ?? 'Automatic'),
+      fuel: String(values.fuel ?? 'Petrol'),
+      seats: Number(values.seats),
+      bags: Number(values.bags),
+      daily_rate_kes: Number(values.daily_rate_kes),
+      deposit_kes: Number(values.deposit_kes),
+      mileage_cap_km: Number(values.mileage_cap_km),
+      insurance_expiry: String(values.insurance_expiry ?? ''),
+      ...(values.status ? { status: String(values.status) } : {}),
+    }
   }
 
   async function addVehicle(event: React.FormEvent<HTMLFormElement>) {
@@ -122,20 +149,64 @@ export function FleetPage() {
     setSaving(true)
     setNotice(null)
     try {
-      await apiClient.post('/vehicles', {
-        ...form,
-        year: Number(form.year),
-        seats: Number(form.seats),
-        bags: Number(form.bags),
-        daily_rate_kes: Number(form.daily_rate_kes),
-        deposit_kes: Number(form.deposit_kes),
-        mileage_cap_km: Number(form.mileage_cap_km),
-      })
+      await apiClient.post('/vehicles', vehiclePayload(form))
       setForm(emptyVehicle)
       setNotice('Vehicle added.')
       await refresh()
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not add vehicle.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function openEdit(vehicle: Vehicle) {
+    setEditing(vehicle)
+    setEditForm({
+      plate_number: vehicle.registration,
+      brand: vehicle.make,
+      model: vehicle.model,
+      year: vehicle.year,
+      category: vehicle.category ?? 'SUV',
+      transmission: vehicle.transmission === 'manual' ? 'Manual' : 'Automatic',
+      fuel: vehicle.fuel ?? 'Petrol',
+      seats: vehicle.seats,
+      bags: vehicle.bags ?? 2,
+      daily_rate_kes: vehicle.ratePerDay,
+      deposit_kes: vehicle.depositKes ?? 20000,
+      mileage_cap_km: vehicle.mileageCapKm ?? 300,
+      insurance_expiry: (vehicle.insuranceExpiry ?? '2030-12-31').slice(0, 10),
+      status: vehicle.status === 'maintenance' ? 'Maintenance' : 'Available',
+    })
+  }
+
+  async function saveEdit() {
+    if (!editing) return
+    setSaving(true)
+    setNotice(null)
+    try {
+      await apiClient.patch(`/vehicles/${encodeURIComponent(editing.id)}`, vehiclePayload(editForm))
+      setEditing(null)
+      setNotice('Vehicle updated.')
+      await refresh()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not update vehicle.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function deleteVehicle() {
+    if (!deleting) return
+    setSaving(true)
+    setNotice(null)
+    try {
+      await apiClient.delete(`/vehicles/${encodeURIComponent(deleting.id)}`)
+      setDeleting(null)
+      setNotice('Vehicle deleted.')
+      await refresh()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not delete vehicle.')
     } finally {
       setSaving(false)
     }
@@ -153,7 +224,7 @@ export function FleetPage() {
 
   return (
     <section className="page-shell">
-      <header className="page-header"><div><p className="eyebrow">AutoHire KE</p><h1>Fleet</h1></div></header>
+      <header className="page-header"><div><p className="eyebrow">AutoHire KE</p><h1>Fleet</h1></div><span>{vehiclesQuery.data?.length ?? 0} vehicles</span></header>
       <div className="stack stack--lg">
         {notice && <p className="field__hint" role="status">{notice}</p>}
         <div className="card-panel">
@@ -167,9 +238,11 @@ export function FleetPage() {
               { key: 'status', header: 'Status', render: (row) => <span className={`status-pill status-pill--${row.status}`}>{row.status}</span> },
               { key: 'action', header: 'Actions', render: (row) => canManage ? (
                 <div className="inline-actions">
+                  <Button size="sm" variant="secondary" onClick={() => openEdit(row)}>Edit</Button>
                   <Button size="sm" variant="secondary" onClick={() => void updateVehicle(row.id, { status: row.status === 'maintenance' ? 'Available' : 'Maintenance' })}>
                     {row.status === 'maintenance' ? 'Release' : 'Maintenance'}
                   </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setDeleting(row)}>Delete</Button>
                 </div>
               ) : '—' },
             ]}
@@ -185,14 +258,49 @@ export function FleetPage() {
             <Input label="Brand" onChange={(event) => setForm({ ...form, brand: event.target.value })} value={form.brand} />
             <Input label="Model" onChange={(event) => setForm({ ...form, model: event.target.value })} value={form.model} />
             <Input label="Year" onChange={(event) => setForm({ ...form, year: Number(event.target.value) })} type="number" value={form.year} />
-            <Select label="Category" onChange={(event) => setForm({ ...form, category: event.target.value })} options={['Economy', 'Compact SUV', '4x4', 'Minivan', 'Luxury'].map((value) => ({ value, label: value }))} value={form.category} />
+            <Select label="Category" onChange={(event) => setForm({ ...form, category: event.target.value })} options={['Economy', 'Compact SUV', 'SUV', '4x4', 'Minivan', 'Luxury'].map((value) => ({ value, label: value }))} value={form.category} />
             <Select label="Transmission" onChange={(event) => setForm({ ...form, transmission: event.target.value })} options={[{ value: 'Automatic', label: 'Automatic' }, { value: 'Manual', label: 'Manual' }]} value={form.transmission} />
+            <Select label="Fuel" onChange={(event) => setForm({ ...form, fuel: event.target.value })} options={[{ value: 'Petrol', label: 'Petrol' }, { value: 'Diesel', label: 'Diesel' }, { value: 'Hybrid', label: 'Hybrid' }, { value: 'Electric', label: 'Electric' }]} value={form.fuel} />
+            <Input label="Seats" onChange={(event) => setForm({ ...form, seats: Number(event.target.value) })} type="number" value={form.seats} />
+            <Input label="Bags" onChange={(event) => setForm({ ...form, bags: Number(event.target.value) })} type="number" value={form.bags} />
             <Input label="Daily rate (KES)" onChange={(event) => setForm({ ...form, daily_rate_kes: Number(event.target.value) })} type="number" value={form.daily_rate_kes} />
             <Input label="Deposit (KES)" onChange={(event) => setForm({ ...form, deposit_kes: Number(event.target.value) })} type="number" value={form.deposit_kes} />
+            <Input label="Mileage cap (km)" onChange={(event) => setForm({ ...form, mileage_cap_km: Number(event.target.value) })} type="number" value={form.mileage_cap_km} />
+            <Input label="Insurance expiry" onChange={(event) => setForm({ ...form, insurance_expiry: event.target.value })} type="date" value={form.insurance_expiry} />
           </div>
           <Button disabled={saving} type="submit">{saving ? 'Saving…' : 'Add vehicle'}</Button>
         </form>}
       </div>
+
+      {editing && <Modal open title={`Edit ${editing.registration}`} onClose={() => setEditing(null)}>
+        <div className="stack stack--md">
+          <div className="filter-grid">
+            <Input label="Plate" onChange={(event) => setEditForm({ ...editForm, plate_number: event.target.value })} value={String(editForm.plate_number ?? '')} />
+            <Input label="Brand" onChange={(event) => setEditForm({ ...editForm, brand: event.target.value })} value={String(editForm.brand ?? '')} />
+            <Input label="Model" onChange={(event) => setEditForm({ ...editForm, model: event.target.value })} value={String(editForm.model ?? '')} />
+            <Input label="Year" onChange={(event) => setEditForm({ ...editForm, year: Number(event.target.value) })} type="number" value={Number(editForm.year ?? 0)} />
+            <Select label="Status" onChange={(event) => setEditForm({ ...editForm, status: event.target.value })} options={[{ value: 'Available', label: 'Available' }, { value: 'Maintenance', label: 'Maintenance' }]} value={String(editForm.status ?? 'Available')} />
+            <Input label="Daily rate (KES)" onChange={(event) => setEditForm({ ...editForm, daily_rate_kes: Number(event.target.value) })} type="number" value={Number(editForm.daily_rate_kes ?? 0)} />
+            <Input label="Deposit (KES)" onChange={(event) => setEditForm({ ...editForm, deposit_kes: Number(event.target.value) })} type="number" value={Number(editForm.deposit_kes ?? 0)} />
+            <Input label="Mileage cap (km)" onChange={(event) => setEditForm({ ...editForm, mileage_cap_km: Number(event.target.value) })} type="number" value={Number(editForm.mileage_cap_km ?? 0)} />
+            <Input label="Insurance expiry" onChange={(event) => setEditForm({ ...editForm, insurance_expiry: event.target.value })} type="date" value={String(editForm.insurance_expiry ?? '')} />
+          </div>
+          <div className="confirm-dialog__actions">
+            <Button onClick={() => setEditing(null)} variant="secondary">Cancel</Button>
+            <Button disabled={saving} onClick={() => void saveEdit()}>{saving ? 'Saving…' : 'Save vehicle'}</Button>
+          </div>
+        </div>
+      </Modal>}
+
+      <ConfirmDialog
+        cancelLabel="Cancel"
+        confirmLabel="Delete vehicle"
+        description={deleting ? `Delete ${deleting.registration}? Vehicles with booking or incident history cannot be deleted.` : ''}
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => void deleteVehicle()}
+        open={Boolean(deleting)}
+        title="Delete vehicle"
+      />
     </section>
   )
 }
@@ -395,6 +503,7 @@ export function StaffPage() {
         branch: 'Nairobi HQ',
         active: row.is_active,
         lastLogin: row.last_login_at ?? 'Never',
+        avatarUrl: row.avatar_url ?? undefined,
       }))
     },
   })
@@ -491,38 +600,77 @@ export function StaffPage() {
     }
   }
 
+  async function uploadAvatar(member: StaffMember, file: File) {
+    setNotice(null)
+    try {
+      const body = new FormData()
+      body.append('file', file)
+      await apiClient.upload(`/staff/${encodeURIComponent(member.id)}/photo`, body, () => undefined)
+      await refreshStaff()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not upload the profile image.')
+    }
+  }
+
+  async function removeAvatar(member: StaffMember) {
+    setNotice(null)
+    try {
+      await apiClient.delete(`/staff/${encodeURIComponent(member.id)}/photo`)
+      await refreshStaff()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not remove the profile image.')
+    }
+  }
+
   return (
     <section className="page-shell">
       <header className="page-header"><div><p className="eyebrow">AutoHire KE</p><h1>Staff</h1></div></header>
       <div className="split-layout">
-        <div className="card-panel">
-          <DataTable
-            columns={[
-              { key: 'name', header: 'Name', render: (row: StaffMember) => <><strong>{row.name}</strong><div className="muted">{row.email}</div></> },
-              { key: 'phone', header: 'Phone', render: (row: StaffMember) => row.phone },
-              { key: 'role', header: 'Role', render: (row: StaffMember) => (
-                <Select
-                  label="Role"
-                  onChange={(event) => updateRole(row, event.target.value as UserRole)}
-                  options={roleChoices.map((option) => ({ value: option.value, label: option.label }))}
-                  value={row.role}
-                />
-              ) },
-              { key: 'branch', header: 'Branch', render: (row: StaffMember) => row.branch },
-              { key: 'status', header: 'Active', render: (row: StaffMember) => row.active ? 'Yes' : 'No' },
-              { key: 'last', header: 'Last login', render: (row: StaffMember) => row.lastLogin === 'Never' ? 'Never' : formatTime(row.lastLogin) },
-              { key: 'toggle', header: 'Actions', render: (row: StaffMember) => (
-                <div className="inline-actions">
-                  {row.active
-                    ? <Button disabled={row.id === user?.id || (row.role === 'owner' && staff.filter((member) => member.role === 'owner' && member.active).length <= 1)} onClick={() => deactivateMember(row)} size="sm" variant="secondary">Deactivate</Button>
-                    : <Button onClick={() => reactivateMember(row)} size="sm" variant="primary">Reactivate</Button>}
+        <div className="stack stack--md">
+          <div className="staff-card-grid">
+            {staff.length === 0 && <div className="empty-state">No staff records found.</div>}
+            {staff.map((member) => (
+              <article className="staff-card" key={member.id}>
+                <div className="staff-card__identity">
+                  {member.avatarUrl
+                    ? <img alt={`${member.name} profile`} className="staff-card__avatar" src={member.avatarUrl} />
+                    : <span aria-hidden="true" className="staff-card__avatar staff-card__avatar--placeholder">{member.name.slice(0, 1).toUpperCase()}</span>}
+                  <div>
+                    <strong>{member.name}</strong>
+                    <a href={`mailto:${member.email}`}>{member.email}</a>
+                    <small>{member.phone || 'No phone'}</small>
+                  </div>
                 </div>
-              ) },
-            ]}
-            empty={<div className="empty-state">No staff records found.</div>}
-            rowKey={(row) => row.id}
-            rows={staff}
-          />
+                <dl className="staff-card__details">
+                  <div><dt>Role</dt><dd>
+                    <Select
+                      label="Role"
+                      onChange={(event) => updateRole(member, event.target.value as UserRole)}
+                      options={roleChoices.map((option) => ({ value: option.value, label: option.label }))}
+                      value={member.role}
+                    />
+                  </dd></div>
+                  <div><dt>Branch</dt><dd>{member.branch}</dd></div>
+                  <div><dt>Status</dt><dd>{member.active ? 'Active' : 'Inactive'}</dd></div>
+                  <div><dt>Last login</dt><dd>{member.lastLogin === 'Never' ? 'Never' : formatTime(member.lastLogin)}</dd></div>
+                </dl>
+                <div className="staff-card__actions">
+                  <label className="button button--secondary button--sm">
+                    {member.avatarUrl ? 'Change photo' : 'Upload photo'}
+                    <input accept="image/*" hidden onChange={(event) => {
+                      const file = event.currentTarget.files?.[0]
+                      event.currentTarget.value = ''
+                      if (file) void uploadAvatar(member, file)
+                    }} type="file" />
+                  </label>
+                  {member.avatarUrl && <Button onClick={() => void removeAvatar(member)} size="sm" variant="ghost">Remove photo</Button>}
+                  {member.active
+                    ? <Button disabled={member.id === user?.id || (member.role === 'owner' && staff.filter((person) => person.role === 'owner' && person.active).length <= 1)} onClick={() => deactivateMember(member)} size="sm" variant="secondary">Deactivate</Button>
+                    : <Button onClick={() => void reactivateMember(member)} size="sm" variant="primary">Reactivate</Button>}
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
         <aside className="card-panel">
           <h2>Invite staff</h2>

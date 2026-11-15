@@ -36,6 +36,9 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
+    # Optional profile image served from /uploads.
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     # We store only the hash, never the plain-text password.
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
 

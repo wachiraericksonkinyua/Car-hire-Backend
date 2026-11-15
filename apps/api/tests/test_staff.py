@@ -179,3 +179,29 @@ async def test_agent_cannot_list_staff(db_session, api_client):
     response = await api_client.get("/api/v1/staff")
 
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_staff_photo_upload_and_remove(db_session, api_client):
+    await _seed(db_session)
+    _login(api_client, OWNER_ID, "owner")
+
+    uploaded = await api_client.post(
+        f"/api/v1/staff/{AGENT_ID}/photo",
+        files={"file": ("avatar.png", b"\x89PNG\r\n\x1a\n", "image/png")},
+    )
+    assert uploaded.status_code == 200
+    assert "/uploads/staff/" in uploaded.json()["data"]["avatar_url"]
+
+    removed = await api_client.delete(
+        f"/api/v1/staff/{AGENT_ID}/photo"
+    )
+    assert removed.status_code == 200
+    assert removed.json()["data"]["avatar_url"] is None
+
+    _login(api_client, MANAGER_ID, "manager")
+    forbidden = await api_client.post(
+        f"/api/v1/staff/{OWNER_ID}/photo",
+        files={"file": ("avatar.png", b"\x89PNG\r\n\x1a\n", "image/png")},
+    )
+    assert forbidden.status_code == 403

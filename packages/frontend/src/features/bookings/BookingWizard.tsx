@@ -1,11 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
-import { ApiError, apiClient } from '../../api/client'
-import { useAvailableVehicles, useCreateBooking } from '../../api/queries'
+import { ApiError } from '../../api/client'
+import { useAvailableVehicles, useCalculateQuote, useCreateBooking } from '../../api/queries'
 import type { Booking, DriveMode, QuoteRequest, QuoteResponse, Vehicle } from '../../api/types'
 import { Button, DateTimeRangePicker, Input, PhoneInput, Select, Stepper } from '../../components/ui'
 import { useAuth } from '../../hooks/AuthContext'
@@ -25,7 +24,7 @@ type CustomerValues = z.infer<typeof customerSchema>
 
 function VehiclePrice({ vehicle, request, onSelect, selected }: { vehicle: Vehicle; request: QuoteRequest; onSelect: () => void; selected: boolean }) {
   const [quote, setQuote] = useState<QuoteResponse | null>(null)
-  const { mutateAsync } = useMutation({ mutationFn: (payload: QuoteRequest) => apiClient.post<QuoteResponse>('/quotes/calculate', payload) })
+  const { mutateAsync } = useCalculateQuote()
   const requestKey = JSON.stringify(request)
   const payload = useMemo(() => ({ ...JSON.parse(requestKey) as QuoteRequest, vehicleId: vehicle.id }), [requestKey, vehicle.id])
 
@@ -165,7 +164,7 @@ export function BookingWizard() {
         </div>}
 
         {step === 2 && <div className="vehicle-picker-step">
-          <h3>{t('booking.availableVehicles')}</h3>
+          <h3>{t('booking.availableVehicles')} <small>({availableVehicles.data?.length ?? 0} available)</small></h3>
           {availableVehicles.isLoading && <div className="vehicle-choice-list"><span className="skeleton" /><span className="skeleton" /></div>}
           {availableVehicles.isError && <p className="field__error" role="alert">{t('booking.actionError')}</p>}
           {availableVehicles.data?.length === 0 && <p>{t('booking.noAvailableVehicles')}</p>}

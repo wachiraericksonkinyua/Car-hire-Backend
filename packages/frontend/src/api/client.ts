@@ -85,6 +85,7 @@ export const apiClient = {
     request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
+  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
   upload: <T>(path: string, body: FormData, onProgress: (progress: number) => void) =>
     new Promise<T>((resolve, reject) => {
       const xhr = new XMLHttpRequest()

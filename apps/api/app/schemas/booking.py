@@ -8,10 +8,12 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     EmailStr,
+    Field,
     field_validator,
     model_validator,
 )
 
+from app.schemas.handover import InspectionResponse
 from app.schemas.quote import ChauffeurZone, ExtraCode
 from app.utils.phone import normalize_kenyan_phone
 
@@ -53,7 +55,7 @@ class BookingCreate(BaseModel):
     pickup_location: str | None = None
     with_chauffeur: bool = False
     chauffeur_zone: ChauffeurZone | None = None
-    extras: list[ExtraCode] = []
+    extras: list[ExtraCode] = Field(default_factory=list)
 
     @field_validator("customer_phone")
     @classmethod
@@ -135,6 +137,8 @@ class BookingResponse(BaseModel):
 class BookingDetailResponse(BookingResponse):
     vehicle: VehicleSummary
     created_by: StaffSummary | None
+    inspections: list[InspectionResponse] = []
+
 
 
 class PublicBookingResponse(BaseModel):
@@ -157,6 +161,7 @@ class PublicBookingStatus(PublicBookingResponse):
 class PublicPaymentStatus(BaseModel):
     checkout_request_id: str
     status: str
+    booking_status: str
     amount_due_kes: int
     amount_paid_kes: int
     amount_mismatch: bool

@@ -3,7 +3,16 @@
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +31,7 @@ from app.schemas.driver import (
     TripStatusUpdate,
 )
 from app.services.audit_service import record_audit
+from app.services.image_service import delete_image_file, store_image
 from app.services.driver_service import (
     DRIVER_BLOCKING_STATUSES,
     available_drivers,
@@ -329,3 +339,136 @@ async def update_trip_status(
     await db.flush()
     await db.refresh(booking)
     return {"data": _trip(booking, vehicle)}
+
+
+@router.post(
+    "/{driver_id}/photo", response_model=SuccessEnvelope[DriverResponse]
+)
+async def upload_driver_photo(
+    driver_id: UUID,
+    request: Request,
+    file: UploadFile = File(...),
+    payload: dict = Depends(require_permission(Permission.DRIVER_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+):
+    profile = await db.get(DriverProfile, driver_id)
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Driver profile not found",
+        )
+    user = await db.get(User, profile.user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Driver account not found",
+        )
+
+    url = await store_image(
+        file, request=request, folder="drivers", owner_id=profile.id
+    )
+    previous = profile.photo_url
+    profile.photo_url = url
+
+    await record_audit(
+        db,
+        actor_id=UUID(payload["sub"]),
+        action="driver.photo-update",
+        entity="driver",
+        entity_id=str(profile.id),
+        after={"photo_url": url},
+        request_id=getattr(request.state, "request_id", None),
+    )
+    await db.flush()
+    await db.refresh(profile)
+    delete_image_file(previous)
+    return {"data": driver_response(profile, user, utc_now().date())}
+
+
+@router.delete(
+    "/{driver_id}/photo", response_model=SuccessEnvelope[DriverResponse]
+)
+async def remove_driver_photo(
+    driver_id: UUID,
+    request: Request,
+    payload: dict = Depends(require_permission(Permission.DRIVER_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+):
+    profile = await db.get(DriverProfile, driver_id)
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Driver profile not found",
+        )
+    user = await db.get(User, profile.user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Driver account not found",
+        )
+
+    previous = profile.photo_url
+    profile.photo_url = None
+
+    await record_audit(
+        db,
+        actor_id=UUID(payload["sub"]),
+        action="driver.photo-remove",
+        entity="driver",
+        entity_id=str(profile.id),
+        before={"photo_url": previous},
+        request_id=getattr(request.state, "request_id", None),
+    )
+    await db.flush()
+    await db.refresh(profile)
+    delete_image_file(previous)
+    return {"data": driver_response(profile, user, utc_now().date())}
+
+
+@router.delete("/{driver_id}")
+async def delete_driver_profile(
+    driver_id: UUID,
+    request: Request,
+    payload: dict = Depends(require_permission(Permission.DRIVER_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a driver profile that has no booking history."""
+    profile = await db.get(DriverProfile, driver_id)
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Driver profile not found",
+        )
+
+    has_booking = await db.scalar(
+        select(Booking.id).where(Booking.driver_id == driver_id).limit(1)
+    )
+    if has_booking is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "This driver has trip history and cannot be deleted. "
+                "Mark them off duty instead."
+            ),
+        )
+
+    previous_photo = profile.photo_url
+    before = {
+        "user_id": str(profile.user_id),
+        "licence_class": profile.licence_class,
+        "status": profile.status.value,
+    }
+    await db.delete(profile)
+
+    await record_audit(
+        db,
+        actor_id=UUID(payload["sub"]),
+        action="driver.delete",
+        entity="driver",
+        entity_id=str(driver_id),
+        before=before,
+        request_id=getattr(request.state, "request_id", None),
+    )
+    await db.flush()
+    delete_image_file(previous_photo)
+    return {"data": {"id": str(driver_id), "deleted": True}}

@@ -47,8 +47,14 @@ export function PaymentStatus({
       if (result.status === 'Completed') {
         setPaymentState('confirmed')
         setManualMessage(null)
-        await queryClient.invalidateQueries({ queryKey: ['booking', bookingId] })
-        await queryClient.invalidateQueries({ queryKey: ['bookings'] })
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['booking', bookingId] }),
+          queryClient.invalidateQueries({ queryKey: ['bookings'] }),
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+          queryClient.invalidateQueries({ queryKey: ['shell-notifications'] }),
+          queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+          queryClient.invalidateQueries({ queryKey: ['available-vehicles'] }),
+        ])
         onConfirmed?.()
       } else if (result.status === 'Failed') {
         setPaymentState('failed')

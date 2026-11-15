@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Timeline, { DateHeader, SidebarHeader, TimelineHeaders } from 'react-calendar-timeline'
 import 'react-calendar-timeline/style.css'
@@ -31,6 +31,10 @@ export function TimelinePage() {
     return { start, end: start + 7 * DAY_MS }
   })
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  // react-calendar-timeline emits onTimeChange on mount and on every scroll.
+  // Only refetch when the window actually moves by a meaningful amount so a
+  // re-render cannot feed back into a new query and loop forever.
+  const lastRange = useRef({ start: visibleRange.start, end: visibleRange.end })
   const navigate = useNavigate()
   const rangeStart = visibleRange.start
   const rangeEnd = visibleRange.end
@@ -54,7 +58,17 @@ export function TimelinePage() {
   function chooseRange(days: 7 | 30) {
     setRangeDays(days)
     const start = todayStart()
-    setVisibleRange({ start, end: start + days * DAY_MS })
+    const end = start + days * DAY_MS
+    lastRange.current = { start, end }
+    setVisibleRange({ start, end })
+  }
+
+  function handleTimeChange(start: number, end: number, updateScrollCanvas: (start: number, end: number) => void) {
+    updateScrollCanvas(start, end)
+    const previous = lastRange.current
+    if (Math.abs(start - previous.start) < 60_000 && Math.abs(end - previous.end) < 60_000) return
+    lastRange.current = { start, end }
+    setVisibleRange({ start, end })
   }
 
   function handleCanvasClick(groupId: string | number, time: number) {
@@ -107,10 +121,7 @@ export function TimelinePage() {
           minZoom={7 * DAY_MS}
           onCanvasClick={handleCanvasClick}
           onItemClick={handleItemClick}
-          onTimeChange={(start, end, updateScrollCanvas) => {
-            setVisibleRange({ start, end })
-            updateScrollCanvas(start, end)
-          }}
+          onTimeChange={handleTimeChange}
           sidebarWidth={170}
           stackItems
           timeSteps={{ second: 60, minute: 30, hour: 1, day: 1, month: 1, year: 1 }}

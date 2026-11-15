@@ -112,6 +112,7 @@ def driver_response(
         "status": profile.status.value,
         "languages": profile.languages,
         "rating": profile.rating,
+        "photo_url": profile.photo_url,
         "licence_expired": profile.licence_expiry < today,
         "psv_expired": profile.psv_expiry < today,
     }

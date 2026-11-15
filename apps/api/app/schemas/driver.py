@@ -22,6 +22,7 @@ class DriverResponse(BaseModel):
     status: str
     languages: list[str] | None
     rating: float | None
+    photo_url: str | None = None
     licence_expired: bool
     psv_expired: bool
 

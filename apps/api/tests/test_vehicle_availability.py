@@ -372,3 +372,20 @@ async def test_booking_overlap_returns_409(db_session, api_client):
         },
     )
     assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_vehicle_delete_guards_history(db_session, api_client):
+    await _seed(db_session)
+    _login(api_client, OWNER_ID, "owner")
+
+    deleted = await api_client.delete(f"/api/v1/vehicles/{V_FREE}")
+    assert deleted.status_code == 200
+    assert deleted.json()["data"]["deleted"] is True
+
+    blocked = await api_client.delete(f"/api/v1/vehicles/{V_RESERVED}")
+    assert blocked.status_code == 409
+
+    _login(api_client, AGENT_ID, "agent")
+    forbidden = await api_client.delete(f"/api/v1/vehicles/{V_MAINT}")
+    assert forbidden.status_code == 403
