@@ -41,8 +41,11 @@ const features: Feature[] = [
 ]
 
 function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
+  const photo = vehicle.photos?.[0]
   return <article className="home-vehicle-card">
-    <div aria-label={t('home.vehicleImagePlaceholder')} className="home-vehicle-card__image" role="img"><CarFront aria-hidden="true" size={66} /><span>{t('home.vehicleImagePlaceholder')}</span></div>
+    {photo
+      ? <div className="home-vehicle-card__image"><img alt={`${vehicle.make} ${vehicle.model}`} src={photo.url} /></div>
+      : <div aria-label={t('home.vehicleImagePlaceholder')} className="home-vehicle-card__image" role="img"><CarFront aria-hidden="true" size={66} /><span>{t('home.vehicleImagePlaceholder')}</span></div>}
     <div className="home-vehicle-card__title"><div><h3>{vehicle.make} {vehicle.model}</h3><span>{vehicle.category ?? t('home.chooseCarType')}</span></div><strong>{formatKes(vehicle.ratePerDay)}<small>{t('home.perDay')}</small></strong></div>
     <div className="home-vehicle-card__details"><span><CarFront aria-hidden="true" size={16} />{vehicle.seats} {t('home.seats')}</span><span>{vehicle.transmission === 'automatic' ? t('home.automatic') : t('home.manual')}</span></div>
     <Link className="home-vehicle-card__link" to={`/vehicles/${vehicle.id}`}>{t('styleguide.view')}<ArrowRight aria-hidden="true" size={16} /></Link>

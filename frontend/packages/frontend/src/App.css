@@ -1059,3 +1059,8 @@
   .fleet-table .data-table td:last-child { border-bottom: 0; }
   .fleet-table .inline-actions { justify-content: flex-end; }
 }
+.home-vehicle-card__image { overflow: hidden; padding: 0; }
+.home-vehicle-card__image img { display: block; height: 100%; min-height: 190px; object-fit: cover; width: 100%; }
+@media (max-width: 760px) {
+  .home-vehicle-card__image img { min-height: 120px; }
+}
