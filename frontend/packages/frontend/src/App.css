@@ -1130,3 +1130,7 @@
   .home-vehicle-card__image { height: 130px; }
   .customer-vehicle-card__photo { height: auto; }
 }
+.pending-image-list { display: grid; gap: 0.6rem; }
+.pending-image { align-items: end; background: var(--surface-muted); border-radius: 10px; display: grid; gap: 0.6rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); padding: 0.65rem 0.8rem; }
+.pending-image > span { font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 600px) { .pending-image { grid-template-columns: 1fr; } }

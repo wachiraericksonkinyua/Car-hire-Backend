@@ -172,6 +172,7 @@ export interface AuditEntry {
 export interface VehiclePhoto {
   id: string
   url: string
+  caption?: string
 }
 
 export interface Vehicle {

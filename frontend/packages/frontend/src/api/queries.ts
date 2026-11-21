@@ -110,9 +110,10 @@ export function useStorage() {
 export function useUploadVehiclePhoto() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ vehicleId, file }: { vehicleId: string; file: File }) => {
+    mutationFn: async ({ vehicleId, file, caption }: { vehicleId: string; file: File; caption?: string }) => {
       const body = new FormData()
       body.append('file', file)
+      if (caption?.trim()) body.append('caption', caption.trim())
       return apiClient.upload<VehiclePhoto>(`/vehicles/${encodeURIComponent(vehicleId)}/photos`, body, () => undefined)
     },
     onSuccess: async () => {
@@ -137,6 +138,21 @@ export function useDeleteVehiclePhoto() {
         queryClient.invalidateQueries({ queryKey: ['public-vehicles'] }),
         queryClient.invalidateQueries({ queryKey: ['public-vehicle'] }),
         queryClient.invalidateQueries({ queryKey: ['system-storage'] }),
+      ])
+    },
+  })
+}
+
+export function useUpdateVehiclePhotoCaption() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ vehicleId, photoId, caption }: { vehicleId: string; photoId: string; caption: string }) =>
+      apiClient.patch(`/vehicles/${encodeURIComponent(vehicleId)}/photos/${encodeURIComponent(photoId)}`, { caption }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+        queryClient.invalidateQueries({ queryKey: ['public-vehicles'] }),
+        queryClient.invalidateQueries({ queryKey: ['public-vehicle'] }),
       ])
     },
   })

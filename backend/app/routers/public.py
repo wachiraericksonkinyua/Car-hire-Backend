@@ -74,6 +74,7 @@ def _photo_list_options():
     return selectinload(Vehicle.photos).load_only(
         VehiclePhoto.id,
         VehiclePhoto.url,
+        VehiclePhoto.caption,
         VehiclePhoto.sort_order,
         VehiclePhoto.created_at,
     )

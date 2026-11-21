@@ -10,6 +10,7 @@ from fastapi import (
     APIRouter,
     Depends,
     File,
+    Form,
     HTTPException,
     Query,
     Request,
@@ -36,6 +37,7 @@ from app.schemas.vehicle import (
     VehicleCreate,
     VehicleDetailResponse,
     VehicleListData,
+    VehiclePhotoUpdate,
     VehicleResponse,
     VehicleUpdate,
 )
@@ -60,6 +62,7 @@ def _photo_list_options():
     return selectinload(Vehicle.photos).load_only(
         VehiclePhoto.id,
         VehiclePhoto.url,
+        VehiclePhoto.caption,
         VehiclePhoto.sort_order,
         VehiclePhoto.created_at,
     )
@@ -497,6 +500,7 @@ async def upload_vehicle_photo(
     vehicle_id: UUID,
     request: Request,
     file: UploadFile = File(...),
+    caption: str | None = Form(default=None),
     _payload: dict = Depends(require_permission(Permission.VEHICLE_MANAGE)),
     db: AsyncSession = Depends(get_db),
 ):
@@ -545,6 +549,7 @@ async def upload_vehicle_photo(
     photo = VehiclePhoto(
         vehicle_id=vehicle_id,
         url="pending",
+        caption=(caption or "").strip()[:120] or None,
         sort_order=existing or 0,
         data=content,
         content_type=file.content_type,
@@ -563,6 +568,7 @@ async def upload_vehicle_photo(
         "data": {
             "id": str(photo.id),
             "url": photo.url,
+            "caption": photo.caption,
             "sort_order": photo.sort_order,
         }
     }
@@ -584,6 +590,32 @@ async def delete_vehicle_photo(
     await db.delete(photo)
     await db.flush()
     return {"data": {"id": str(photo_id), "deleted": True}}
+
+
+@router.patch("/{vehicle_id}/photos/{photo_id}")
+async def update_vehicle_photo(
+    vehicle_id: UUID,
+    photo_id: UUID,
+    data: VehiclePhotoUpdate,
+    _payload: dict = Depends(require_permission(Permission.VEHICLE_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+):
+    photo = await db.get(VehiclePhoto, photo_id)
+    if photo is None or photo.vehicle_id != vehicle_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vehicle image not found",
+        )
+    photo.caption = (data.caption or "").strip()[:120] or None
+    await db.flush()
+    return {
+        "data": {
+            "id": str(photo.id),
+            "url": photo.url,
+            "caption": photo.caption,
+            "sort_order": photo.sort_order,
+        }
+    }
 
 
 @router.get("/{vehicle_id}/photos/{photo_id}")

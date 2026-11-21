@@ -6,7 +6,7 @@ import { canApproveBooking } from '../hooks/useCan'
 import { useTranslation } from '../i18n'
 import type { AuditEntry, Booking, PaymentMethod, StaffMember, UserRole, Vehicle } from '../api/types'
 import { apiClient } from '../api/client'
-import { useBookingList, useDeleteVehiclePhoto, useStorage, useUploadVehiclePhoto, useVehicles } from '../api/queries'
+import { useBookingList, useDeleteVehiclePhoto, useStorage, useUpdateVehiclePhotoCaption, useUploadVehiclePhoto, useVehicles } from '../api/queries'
 import { formatKes } from '../lib'
 import { PagePlaceholder } from './PagePlaceholder'
 
@@ -119,6 +119,7 @@ export function FleetPage() {
   const storageQuery = useStorage()
   const uploadPhoto = useUploadVehiclePhoto()
   const removePhoto = useDeleteVehiclePhoto()
+  const updateCaption = useUpdateVehiclePhotoCaption()
   const canManage = user?.role === 'owner' || user?.role === 'manager'
   const [form, setForm] = useState(emptyVehicle)
   const [notice, setNotice] = useState<string | null>(null)
@@ -126,7 +127,7 @@ export function FleetPage() {
   const [editing, setEditing] = useState<Vehicle | null>(null)
   const [deleting, setDeleting] = useState<Vehicle | null>(null)
   const [editForm, setEditForm] = useState<Record<string, string | number>>({})
-  const [pendingImages, setPendingImages] = useState<File[]>([])
+  const [pendingImages, setPendingImages] = useState<{ file: File; caption: string }[]>([])
 
   async function refresh() {
     await Promise.all([
@@ -161,8 +162,8 @@ export function FleetPage() {
     setNotice(null)
     try {
       const created = await apiClient.post<{ id: string }>('/vehicles', vehiclePayload(form))
-      for (const file of pendingImages) {
-        await uploadPhoto.mutateAsync({ vehicleId: created.id, file })
+      for (const image of pendingImages) {
+        await uploadPhoto.mutateAsync({ vehicleId: created.id, file: image.file, caption: image.caption })
       }
       setForm(emptyVehicle)
       setPendingImages([])
@@ -232,6 +233,19 @@ export function FleetPage() {
       setEditing((current) => current ? { ...current, photos: (current.photos ?? []).filter((photo) => photo.id !== photoId) } : current)
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not delete the image.')
+    }
+  }
+
+  async function saveCaption(photoId: string, caption: string) {
+    if (!editing) return
+    try {
+      await updateCaption.mutateAsync({ vehicleId: editing.id, photoId, caption })
+      setEditing((current) => current ? {
+        ...current,
+        photos: (current.photos ?? []).map((photo) => photo.id === photoId ? { ...photo, caption } : photo),
+      } : current)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not save the image caption.')
     }
   }
 
@@ -341,11 +355,18 @@ export function FleetPage() {
           <label className="button button--secondary button--sm">
             Add vehicle images
             <input accept="image/jpeg,image/png,image/webp" hidden multiple onChange={(event) => {
-              setPendingImages(Array.from(event.currentTarget.files ?? []))
+              const files = Array.from(event.currentTarget.files ?? [])
+              setPendingImages(files.map((file) => ({ file, caption: '' })))
               event.currentTarget.value = ''
             }} type="file" />
           </label>
-          {pendingImages.length > 0 && <p className="field__hint" role="status">{pendingImages.length} image(s) will be uploaded with the vehicle.</p>}
+          {pendingImages.length > 0 && <div className="pending-image-list">
+            {pendingImages.map((image, index) => <div className="pending-image" key={`${image.file.name}-${index}`}>
+              <span>{image.file.name}</span>
+              <Input label="Caption" onChange={(event) => setPendingImages((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, caption: event.target.value } : item))} placeholder="Interior, rear, bumper…" value={image.caption} />
+            </div>)}
+            <small className="field__hint" role="status">{pendingImages.length} image(s) will be uploaded with the vehicle.</small>
+          </div>}
           <Button disabled={saving} type="submit">{saving ? 'Saving…' : 'Add vehicle'}</Button>
         </form>}
       </div>
@@ -367,7 +388,8 @@ export function FleetPage() {
             <div className="section-heading"><h3>Vehicle images</h3><span className="muted">Stored in PostgreSQL</span></div>
             {(editing.photos ?? []).length > 0
               ? <div className="vehicle-photo-grid">{(editing.photos ?? []).map((photo) => <figure key={photo.id}>
-                <img alt="Vehicle" src={photo.url} />
+                <img alt={photo.caption ?? 'Vehicle'} src={photo.url} />
+                <Input defaultValue={photo.caption ?? ''} label="Caption" onBlur={(event) => void saveCaption(photo.id, event.target.value)} placeholder="Interior, rear, bumper…" />
                 <Button onClick={() => void deleteEditingImage(photo.id)} size="sm" variant="ghost">Remove</Button>
               </figure>)}</div>
               : <p className="field__hint">No images yet. Add the first one below.</p>}

@@ -72,8 +72,13 @@ class VehiclePhotoResponse(BaseModel):
 
     id: UUID
     url: str
+    caption: str | None = None
     sort_order: int
     created_at: datetime
+
+
+class VehiclePhotoUpdate(BaseModel):
+    caption: str | None = None
 
 
 class VehicleResponse(BaseModel):

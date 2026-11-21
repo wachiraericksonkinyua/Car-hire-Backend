@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Timeline, { DateHeader, SidebarHeader, TimelineHeaders } from 'react-calendar-timeline'
 import 'react-calendar-timeline/style.css'
@@ -30,6 +30,10 @@ export function TimelinePage() {
     const start = todayStart()
     return { start, end: start + 7 * DAY_MS }
   })
+  // The canvas updates immediately, but the API range is debounced so a
+  // scroll gesture cannot refetch on every frame and make the timeline jump.
+  const [queryRange, setQueryRange] = useState(visibleRange)
+  const queryTimer = useRef<number | undefined>(undefined)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   // react-calendar-timeline emits onTimeChange on mount and on every scroll.
   // Only refetch when the window actually moves by a meaningful amount so a
@@ -38,8 +42,8 @@ export function TimelinePage() {
   const navigate = useNavigate()
   const rangeStart = visibleRange.start
   const rangeEnd = visibleRange.end
-  const from = new Date(rangeStart).toISOString()
-  const to = new Date(rangeEnd).toISOString()
+  const from = new Date(queryRange.start).toISOString()
+  const to = new Date(queryRange.end).toISOString()
   const bookingsQuery = useBookingList(new URLSearchParams({ from, to }).toString())
   const vehiclesQuery = useVehicles()
   const maintenanceQuery = useMaintenanceWindows(from, to)
@@ -47,28 +51,37 @@ export function TimelinePage() {
   const bookings = bookingsQuery.data ?? []
   const vehicles = vehiclesQuery.data ?? []
   const incidents = incidentsQuery.data ?? []
-  const items = buildTimelineItems(bookings, maintenanceQuery.data ?? [], undefined, incidents)
-  const groups = vehicles.map((vehicle) => ({
+  const items = useMemo(
+    () => buildTimelineItems(bookings, maintenanceQuery.data ?? [], undefined, incidents),
+    [bookings, maintenanceQuery.data, incidents],
+  )
+  const groups = useMemo(() => vehicles.map((vehicle) => ({
     id: vehicle.id,
     title: <span className="fleet-timeline__vehicle"><strong>{vehicle.registration}</strong><small>{vehicle.make} {vehicle.model}</small></span>,
     stackItems: true,
     height: 54,
-  }))
+  })), [vehicles])
+
+  useEffect(() => () => window.clearTimeout(queryTimer.current), [])
 
   function chooseRange(days: 7 | 30) {
     setRangeDays(days)
     const start = todayStart()
     const end = start + days * DAY_MS
     lastRange.current = { start, end }
+    window.clearTimeout(queryTimer.current)
     setVisibleRange({ start, end })
+    setQueryRange({ start, end })
   }
 
   function handleTimeChange(start: number, end: number, updateScrollCanvas: (start: number, end: number) => void) {
     updateScrollCanvas(start, end)
+    setVisibleRange({ start, end })
     const previous = lastRange.current
     if (Math.abs(start - previous.start) < 60_000 && Math.abs(end - previous.end) < 60_000) return
     lastRange.current = { start, end }
-    setVisibleRange({ start, end })
+    window.clearTimeout(queryTimer.current)
+    queryTimer.current = window.setTimeout(() => setQueryRange({ start, end }), 500)
   }
 
   function handleCanvasClick(groupId: string | number, time: number) {
@@ -112,8 +125,6 @@ export function TimelinePage() {
         <Timeline<FleetTimelineItem>
           canMove={false}
           canResize={false}
-          defaultTimeEnd={rangeEnd}
-          defaultTimeStart={rangeStart}
           groups={groups}
           itemHeightRatio={0.78}
           items={items}
