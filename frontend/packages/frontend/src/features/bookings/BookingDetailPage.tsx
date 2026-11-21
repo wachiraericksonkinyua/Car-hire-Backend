@@ -16,7 +16,11 @@ import { getDriverEligibilityReason } from '../drivers/driverRules'
 export function BookingDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
+  const [toast, setToast] = useState<{ message: string; tone: 'success' | 'info' | 'danger' } | null>(null)
   const bookingQuery = useBookingDetail(id)
+
+  const closeToast = () => setToast(null)
+  const showToast = (message: string, tone: 'success' | 'info' | 'danger' = 'success') => setToast({ message, tone })
   const updateBooking = useUpdateBooking(id)
   const assignDriver = useAssignDriver(id)
   const canApprove = useCan('approvals:offline')
@@ -92,7 +96,10 @@ export function BookingDetailPage() {
                 const driverId = autoAssign ? suggestedDriverId : selectedDriverId
                 if (!driverId) return
                 setAssignDriverError(null)
-                void assignDriver.mutateAsync(driverId).then(() => setAssignDriverOpen(false)).catch((error: unknown) => {
+                void assignDriver.mutateAsync(driverId).then(() => {
+                  setAssignDriverOpen(false)
+                  showToast('Driver assigned successfully', 'success')
+                }).catch((error: unknown) => {
                   setAssignDriverError(error instanceof ApiError && error.status === 409
                     ? 'This driver was just assigned to another booking. Refresh the available drivers and choose again.'
                     : 'The driver could not be assigned. Try again.')
@@ -148,6 +155,7 @@ export function BookingDetailPage() {
       </div>
       {actionError && <p className="quote-conflict" role="alert">{t('booking.actionError')}</p>}
       {cancelOpen && <div className="booking-cancel-confirm" role="group"><span>{t('booking.cancelConfirm')}</span><Button onClick={() => void updateStatus('cancelled').then(() => { setCancelOpen(false); navigate('/admin/bookings') })} variant="danger">{t('booking.confirmAction')}</Button><Button onClick={() => setCancelOpen(false)} variant="secondary">{t('booking.back')}</Button></div>}
+      {toast && <div className="toast toast--{toast.tone}" role="status">{toast.message}<button onClick={closeToast} aria-label="Close">×</button></div>}
     </div>
   )
 }

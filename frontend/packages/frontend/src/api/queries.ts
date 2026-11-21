@@ -396,6 +396,7 @@ export function useAssignDriver(bookingId: string) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['drivers'] }),
         queryClient.invalidateQueries({ queryKey: ['bookings'] }),
+        queryClient.invalidateQueries({ queryKey: ['booking', bookingId] }),
       ])
     },
   })
