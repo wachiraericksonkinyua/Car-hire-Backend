@@ -1,4 +1,4 @@
-# apps/api/app/main.py
+# backend/app/main.py
 from contextlib import asynccontextmanager
 from pathlib import Path
 

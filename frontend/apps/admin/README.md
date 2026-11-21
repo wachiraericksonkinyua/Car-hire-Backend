@@ -4,7 +4,7 @@ Staff back-office React 19 + Vite app for AutoHire KE.
 
 | Item | Value |
 |---|---|
-| Dev command (from repo root) | `npm run dev:admin` |
+| Dev command (from `frontend/`) | `npm run dev:admin` |
 | Dev URL | http://localhost:5174 |
 | Build output | `apps/admin/dist` |
 | API | Authenticated staff API under `/api/v1` |
@@ -14,7 +14,7 @@ adapters and types live in `../../packages/frontend`.
 
 ## Setup
 
-Install dependencies once from the repository root (npm workspaces):
+Install dependencies once from the `frontend/` folder (npm workspaces):
 
 ```bash
 npm install
@@ -58,7 +58,7 @@ All seeded accounts use `AutoHireDemo123!`.
 ## Build
 
 ```bash
-npm run build:admin   # from repo root
+npm run build:admin   # from `frontend/`
 # or
 npm run build         # inside apps/admin
 ```
@@ -70,11 +70,11 @@ can be hosted on its own domain or subdomain.
 
 ```bash
 npm run type-check
-npm test                # shared unit tests, from repo root
+npm test                # shared unit tests, from `frontend/`
 npm run test:e2e:admin  # Playwright
 ```
 
 ## Remaining gaps
 
-See `../../apps/api/FRONTEND_INTEGRATION.md`: vehicle photo galleries,
+See `../../../backend/FRONTEND_INTEGRATION.md`: vehicle photo galleries,
 payment reconciliation/refunds, richer maintenance windows and reports.

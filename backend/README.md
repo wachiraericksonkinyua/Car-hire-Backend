@@ -1,4 +1,4 @@
-# apps/api — AutoHire KE backend
+# backend — AutoHire KE backend
 
 FastAPI + async SQLAlchemy + PostgreSQL. Single-tenant MVP.
 
@@ -41,7 +41,7 @@ The provided `docker-compose.yml` starts PostgreSQL on host port **5433** and
 creates `autohire` and `autohire_test`. It never touches a system PostgreSQL
 on port 5432.
 
-Without Docker, use the user-owned cluster helper from the repo root:
+Without Docker, use the user-owned cluster helper:
 
 ```bash
 ./scripts/dev_postgres.sh init    # first time
@@ -55,7 +55,7 @@ all setup options.
 ## Run
 
 ```bash
-cd apps/api
+cd backend
 source .venv/bin/activate
 uvicorn app.main:app --reload --port 8000
 ```
@@ -75,11 +75,11 @@ alembic check
 The suite runs against PostgreSQL, never SQLite. Start the database first:
 
 ```bash
-# from the repository root
+# from the backend folder
 docker compose up -d db
 ```
 
-Then, from `apps/api`:
+Then, from `backend`:
 
 ```bash
 source .venv/bin/activate

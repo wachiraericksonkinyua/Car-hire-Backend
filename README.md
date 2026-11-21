@@ -2,10 +2,10 @@
 
 Car hire management platform for Kenya.
 
-- `apps/api` — FastAPI + async SQLAlchemy + PostgreSQL.
-- `apps/web` — customer website (React 19 + Vite).
-- `apps/admin` — staff workspace (React 19 + Vite).
-- `packages/frontend` — shared React code used by both frontend apps.
+- `backend` — FastAPI + async SQLAlchemy + PostgreSQL.
+- `frontend/apps/web` — customer website (React 19 + Vite).
+- `frontend/apps/admin` — staff workspace (React 19 + Vite).
+- `frontend/packages/frontend` — shared React code used by both frontend apps.
 
 The backend is a single-tenant MVP. All application data lives in PostgreSQL.
 
@@ -15,9 +15,10 @@ The frontend was imported from
 `https://github.com/devmunguti/CarHire-frontend` at commit `426e379`.
 
 The two frontend apps are separate Vite builds that share
-`packages/frontend`. Install once from the repository root:
+`frontend/packages/frontend`. Install once from the `frontend` folder:
 
 ```bash
+cd frontend
 npm install
 npm run dev:web     # customer app, http://localhost:5173
 npm run dev:admin   # staff app,    http://localhost:5174
@@ -26,25 +27,25 @@ npm run dev:admin   # staff app,    http://localhost:5174
 Two separately deployable builds:
 
 ```bash
-npm run build:web     # apps/web/dist
-npm run build:admin   # apps/admin/dist
+npm run build:web     # frontend/apps/web/dist
+npm run build:admin   # frontend/apps/admin/dist
 ```
 
 Both apps are wired to the backend. The customer app uses the public API; the
 admin app uses the authenticated staff API through a response adapter. See
-`apps/api/FRONTEND_INTEGRATION.md` for the remaining gaps.
+`backend/FRONTEND_INTEGRATION.md` for the remaining gaps.
 
 ## Testing
 
 Backend (needs the local test PostgreSQL):
 
 ```bash
-./scripts/dev_postgres.sh start
-cd apps/api
+./backend/scripts/dev_postgres.sh start
+cd backend
 ./.venv/bin/pytest -q
 ```
 
-Frontend unit tests and type checks:
+Frontend unit tests and type checks (from `frontend/`):
 
 ```bash
 npm run type-check
@@ -78,18 +79,19 @@ troubleshooting: **[ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md)**.
 No Docker? Use the user-owned PostgreSQL helper:
 
 ```bash
-./scripts/dev_postgres.sh init    # first time
-./scripts/dev_postgres.sh start
+./backend/scripts/dev_postgres.sh init    # first time
+./backend/scripts/dev_postgres.sh start
 ```
 
 Or with Docker:
 
 ```bash
 # 1. Start PostgreSQL (host port 5433 for the app, plus a test database)
+cd backend
 docker compose up -d db
 
 # 2. Create and activate the virtual environment
-cd apps/api
+cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 
@@ -107,11 +109,11 @@ alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
 
-See `apps/api/README.md` for tests, the test database, and admin seeding.
+See `backend/README.md` for tests, the test database, and admin seeding.
 
 ## Backend quickstart
 
-See `apps/api/README.md` for tests, the test database, and owner seeding.
+See `backend/README.md` for tests, the test database, and owner seeding.
 
 ## Conventions
 
@@ -119,4 +121,4 @@ See `apps/api/README.md` for tests, the test database, and owner seeding.
 - Money: integer Kenyan Shillings (no floats)
 - Datetimes: stored as `TIMESTAMPTZ`, returned as UTC ISO strings
 
-API behaviour and the auth/role contract are documented in `apps/api/README.md`.
+API behaviour and the auth/role contract are documented in `backend/README.md`.

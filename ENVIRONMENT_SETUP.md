@@ -34,17 +34,17 @@ On this machine:
 
 ```bash
 # 1. Project + virtualenv
-cd ~/car-hire/apps/api
+cd ~/car-hire/backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
 # 2. Local PostgreSQL (already initialised; this starts it)
 cd ~/car-hire
-./scripts/dev_postgres.sh start
+./backend/scripts/dev_postgres.sh start
 
 # 3. Environment
-cd apps/api
+cd backend
 cp .env.example .env     # already exists on this machine
 # edit secrets / M-Pesa values as needed
 
@@ -91,10 +91,10 @@ Rules:
 never touches the system cluster.
 
 ```bash
-./scripts/dev_postgres.sh init     # first time: initdb + start + create DBs
-./scripts/dev_postgres.sh start
-./scripts/dev_postgres.sh status
-./scripts/dev_postgres.sh stop
+./backend/scripts/dev_postgres.sh init     # first time: initdb + start + create DBs
+./backend/scripts/dev_postgres.sh start
+./backend/scripts/dev_postgres.sh status
+./backend/scripts/dev_postgres.sh stop
 ```
 
 It creates:
@@ -119,6 +119,7 @@ password: autohire
 same two databases.
 
 ```bash
+cd backend
 docker compose up -d db
 docker compose ps
 ```
@@ -126,7 +127,7 @@ docker compose ps
 If you use this, **stop the local cluster first** (they share port 5433):
 
 ```bash
-./scripts/dev_postgres.sh stop
+./backend/scripts/dev_postgres.sh stop
 ```
 
 ### Option C — existing/system PostgreSQL
@@ -159,7 +160,7 @@ CREATE EXTENSION btree_gist;
 
 Copy `.env.example` → `.env` (never commit `.env`; it is gitignored).
 The app loads `.env` from the **current working directory**, so run commands
-from `apps/api`.
+from `backend`.
 
 ### Required
 
@@ -240,7 +241,7 @@ booking or driver assignment.
 
 ## 5. Database migrations
 
-Run from `apps/api`:
+Run from `backend`:
 
 ```bash
 source .venv/bin/activate
@@ -265,7 +266,7 @@ Never edit an applied migration; add a new revision.
 ## 6. Seed the first owner
 
 ```bash
-cd apps/api
+cd backend
 OWNER_DEFAULT_PASSWORD='a-strong-password' \
   ./.venv/bin/python -m scripts.seed_owner
 ```
@@ -284,7 +285,7 @@ The suite uses **PostgreSQL only** — never SQLite. It drops/recreates the
 `public` schema in the test database and applies every migration.
 
 ```bash
-cd apps/api
+cd backend
 pytest -q
 # or explicitly:
 TEST_DATABASE_URL=postgresql+asyncpg://autohire:autohire@127.0.0.1:5433/autohire_test pytest -q
@@ -305,10 +306,12 @@ pytest -k "pricing or dashboard" -q
 
 ## 7a. Frontend (two deployables)
 
-The frontend is an npm workspace with two app shells (`apps/web`,
-`apps/admin`) sharing `packages/frontend`. Install once from the repo root:
+The frontend is an npm workspace with two app shells (`frontend/apps/web`,
+`frontend/apps/admin`) sharing `frontend/packages/frontend`. Install once from
+the `frontend` folder:
 
 ```bash
+cd frontend
 npm install
 
 npm run dev:web     # customer site, http://localhost:5173
@@ -318,8 +321,8 @@ npm run dev:admin   # staff back-office, http://localhost:5174
 Build separately:
 
 ```bash
-npm run build:web   # apps/web/dist
-npm run build:admin # apps/admin/dist
+npm run build:web   # frontend/apps/web/dist
+npm run build:admin # frontend/apps/admin/dist
 ```
 
 Both origins are in `CORS_ORIGINS`. Both apps use the real API; set
@@ -329,7 +332,7 @@ Both origins are in `CORS_ORIGINS`. Both apps use the real API; set
 Optional demo data (users, vehicles, bookings, incidents, mechanics):
 
 ```bash
-cd apps/api
+cd backend
 source .venv/bin/activate
 python -m scripts.seed_demo
 ```
@@ -340,7 +343,7 @@ All demo accounts use `AutoHireDemo123!`; the seeded owner is
 ## 8. Run the API
 
 ```bash
-cd apps/api
+cd backend
 source .venv/bin/activate
 uvicorn app.main:app --reload --port 8000
 ```
@@ -386,14 +389,14 @@ curl -i -b /tmp/ah.cookies -X POST http://localhost:8000/api/v1/auth/logout
 | `invalid interpolation syntax ... %40` during Alembic | Percent-encoded passwords are now escaped in `alembic/env.py`; pull the latest code. |
 | `gaierror: Name or service not known` | An unescaped `@`/`:` in the password made SQLAlchemy read part of it as the host. URL-encode the password. |
 | `password authentication failed` | Check `DATABASE_URL` user/password/port. The system DB on 5432 is not the dev DB. |
-| `Connection refused` on 5433 | `./scripts/dev_postgres.sh start` |
+| `Connection refused` on 5433 | `./backend/scripts/dev_postgres.sh start` |
 | `type "btree_gist" does not exist` / extension error | `CREATE EXTENSION btree_gist` as DB owner/superuser |
 | `alembic check` says database not up to date | `alembic upgrade head` |
 | pytest refuses to run | `TEST_DATABASE_URL` database name must end in `_test` |
 | Login cookie not sent | Cookies are `Secure`; use HTTPS or localhost, and send with `-b`. |
 | STK push says missing M-Pesa settings | Fill all `MPESA_*` values; the callback URL must be public HTTPS. |
 | SMS not sent | Expected without `AFRICASTALKING_*`; assignment still succeeds. |
-| Port 5433 busy | Another cluster/compose is running. Stop one: `./scripts/dev_postgres.sh stop` or `docker compose stop db`. |
+| Port 5433 busy | Another cluster/compose is running. Stop one: `./backend/scripts/dev_postgres.sh stop` or `docker compose stop db`. |
 | Port 8000 busy | `uvicorn ... --port 8001` |
 
 ---
@@ -402,19 +405,19 @@ curl -i -b /tmp/ah.cookies -X POST http://localhost:8000/api/v1/auth/logout
 
 ```bash
 # Database
-./scripts/dev_postgres.sh status
+./backend/scripts/dev_postgres.sh status
 PGPASSWORD=autohire psql -h 127.0.0.1 -p 5433 -U autohire -d autohire
 
 # Migrations
-cd apps/api && ./.venv/bin/alembic upgrade head
-cd apps/api && ./.venv/bin/alembic check
+cd backend && ./.venv/bin/alembic upgrade head
+cd backend && ./.venv/bin/alembic check
 
 # Tests
-cd apps/api && ./.venv/bin/pytest -q
+cd backend && ./.venv/bin/pytest -q
 
 # Seed owner
-cd apps/api && OWNER_DEFAULT_PASSWORD='...' ./.venv/bin/python -m scripts.seed_owner
+cd backend && OWNER_DEFAULT_PASSWORD='...' ./.venv/bin/python -m scripts.seed_owner
 
 # API
-cd apps/api && ./.venv/bin/uvicorn app.main:app --reload --port 8000
+cd backend && ./.venv/bin/uvicorn app.main:app --reload --port 8000
 ```

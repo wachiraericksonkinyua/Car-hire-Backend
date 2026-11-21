@@ -4,7 +4,7 @@ Customer-facing React 19 + Vite app for AutoHire KE.
 
 | Item | Value |
 |---|---|
-| Dev command (from repo root) | `npm run dev:web` |
+| Dev command (from `frontend/`) | `npm run dev:web` |
 | Dev URL | http://localhost:5173 |
 | Build output | `apps/web/dist` |
 | API | Public API under `/api/v1/public` |
@@ -14,7 +14,7 @@ adapters and types live in `../../packages/frontend`.
 
 ## Setup
 
-Install dependencies once from the repository root (npm workspaces):
+Install dependencies once from the `frontend/` folder (npm workspaces):
 
 ```bash
 npm install
@@ -47,7 +47,7 @@ Copy `.env.example` to `.env.local` to override locally.
 ## Build
 
 ```bash
-npm run build:web     # from repo root
+npm run build:web     # from `frontend/`
 # or
 npm run build         # inside apps/web
 ```
@@ -58,6 +58,6 @@ Deploy the contents of `apps/web/dist` to any static host.
 
 ```bash
 npm run type-check
-npm test              # shared unit tests, from repo root
+npm test              # shared unit tests, from `frontend/`
 npm run test:e2e:web  # Playwright
 ```

@@ -12,7 +12,7 @@ VALID_ENV = {
 
 
 def _settings(**overrides) -> Settings:
-    # `_env_file=None` stops the real apps/api/.env file from leaking into
+    # `_env_file=None` stops the real backend/.env file from leaking into
     # the test; every value is passed explicitly instead.
     return Settings(_env_file=None, **{**VALID_ENV, **overrides})
 

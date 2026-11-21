@@ -5,14 +5,14 @@ React 19 + Vite frontend.
 
 > **Current status**
 > - The frontend is split into **two separate apps** in an npm workspace:
->   `apps/web` (customer, port 5173) and `apps/admin` (staff, port 5174),
->   sharing `packages/frontend`.
+>   `frontend/apps/web` (customer, port 5173) and `frontend/apps/admin` (staff, port 5174),
+>   sharing `frontend/packages/frontend`.
 > - A **public customer API** now exists under `/api/v1/public`: catalogue,
 >   vehicle detail, quotes, guest booking creation, booking lookup by
 >   reference + phone, STK push, payment polling and nearest mechanics.
 > - The **customer web pages are connected** to those public endpoints.
 > - The **admin app is wired to the real staff API** through a response adapter
->   (`packages/frontend/src/api/backend.ts` and `queries.ts`): auth, dashboard, fleet,
+>   (`frontend/packages/frontend/src/api/backend.ts` and `queries.ts`): auth, dashboard, fleet,
 >   bookings, approvals, handover, payments, drivers, mechanics, incidents,
 >   staff and audit.
 > - There are still **no customer accounts**. Guest lookup uses booking
@@ -39,7 +39,7 @@ Frontend env:
 VITE_API_BASE_URL=http://localhost:8000
 ```
 
-The backend CORS allow-list comes from `CORS_ORIGINS` in `apps/api/.env`
+The backend CORS allow-list comes from `CORS_ORIGINS` in `backend/.env`
 (comma-separated). For Vite dev it is currently:
 
 ```env
@@ -199,7 +199,7 @@ Always display the `request_id` in error states and support logs.
 
 ## 2. Endpoint-to-Feature Map
 
-### Public customer API (used by `apps/web`)
+### Public customer API (used by `frontend/apps/web`)
 
 | Method | Endpoint | Feature / action |
 |---|---|---|

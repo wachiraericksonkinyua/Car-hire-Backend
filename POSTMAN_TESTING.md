@@ -8,7 +8,7 @@ The API runs locally against Supabase; Postman talks to
 ## 1. Start the API
 
 ```bash
-cd ~/car-hire/apps/api
+cd ~/car-hire/backend
 source .venv/bin/activate
 uvicorn app.main:app --reload --port 8000
 ```

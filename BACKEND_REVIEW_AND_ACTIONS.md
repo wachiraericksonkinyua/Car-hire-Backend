@@ -10,14 +10,14 @@ This document is the hand-off list: what the backend looks like today, what I st
 
 ```
 ┌──────────────────────────────┐
-│ Frontend (apps/web)          │  ← not built yet
+│ Frontend (frontend/apps/web)          │  ← not built yet
 │ React 19 + Vite              │
 └──────────────┬───────────────┘
                │ HTTPS, credentials: 'include'
                │ (HttpOnly access_token cookie)
                ▼
 ┌──────────────────────────────────────────────────────────┐
-│ FastAPI  (apps/api/app/main.py)                          │
+│ FastAPI  (backend/app/main.py)                          │
 │                                                          │
 │  routers/   auth · vehicles · bookings · payments ·      │
 │             mechanics · health                           │
@@ -97,7 +97,7 @@ CREATE DATABASE autohire_ke OWNER autohire;
 GRANT ALL PRIVILEGES ON DATABASE autohire_ke TO autohire;
 ```
 
-Then `apps/api/.env` becomes:
+Then `backend/.env` becomes:
 
 ```env
 DATABASE_URL=postgresql+asyncpg://autohire:choose-a-strong-password@localhost:5432/autohire_ke
@@ -111,7 +111,7 @@ Also tell me if production will use a managed provider (Neon, Supabase, Railway,
 
 ### B. Secrets for this deployment
 
-Already generated for local/dev in `apps/api/.env`:
+Already generated for local/dev in `backend/.env`:
 - `JWT_SECRET` (64-char URL-safe token)
 - `ENCRYPTION_KEY` (valid Fernet key)
 
@@ -185,7 +185,7 @@ The seed script creates `admin@autohire.ke` with a default password unless you o
 - [ ] Give me the password to use (or set it yourself):
 
 ```bash
-cd apps/api
+cd backend
 ADMIN_DEFAULT_PASSWORD='a-strong-password' ./.venv/bin/python -m scripts.seed_admin
 ```
 
@@ -256,7 +256,7 @@ Ordered by dependency:
 3. **Generate the missing migration** for `vehicles`, `bookings`, `payments`, `mechanics`, then make `alembic check` pass.
 4. **Harden payments** (see §4) — ownership checks, server-side amount, callback protection.
 5. **Add operations gaps** — hold-expiry cleanup, booking list/cancel/complete, admin CRUD for vehicles/mechanics, logout.
-6. **Wire the frontend** — scaffold `apps/web`, login with cookie, vehicle list, booking flow, M-Pesa prompt.
+6. **Wire the frontend** — scaffold `frontend/apps/web`, login with cookie, vehicle list, booking flow, M-Pesa prompt.
 7. **Deployment** — Dockerfile, env/secrets, HTTPS, CORS (if needed), CI running the 29+ tests.
 
 ---
@@ -279,7 +279,7 @@ I found these while reading the whole backend. None break the current tests, but
 | 10 | 🟡 Medium | **No admin CRUD**: vehicles and mechanics can only be inserted via scripts/SQL. | Add admin-only create/update/deactivate endpoints. |
 | 11 | 🟡 Medium | **No booking list/cancel/complete endpoints.** Customers and staff can't see bookings. | Add filtered lists + cancel/complete transitions. |
 | 12 | 🟢 Low | Vehicle list has no pagination. | Add `limit`/`offset` before inventory grows. |
-| 13 | 🟢 Low | `README.md` says `uv sync` but there's no `pyproject.toml`/`uv.lock`; setup uses pip + `requirements.txt`. Also references a missing `apps/api/README.md`. | Choose uv or pip and make the docs match. |
+| 13 | 🟢 Low | `README.md` says `uv sync` but there's no `pyproject.toml`/`uv.lock`; setup uses pip + `requirements.txt`. Also references a missing `backend/README.md`. | Choose uv or pip and make the docs match. |
 | 14 | 🟢 Low | M-Pesa phone numbers aren't normalised/validated (`07…`, `+254…`, `254…`). | Normalise to `2547XXXXXXXX` before sending. |
 | 15 | 🟢 Low | Tests use SQLite, so `FOR UPDATE` and Postgres enums/timezones aren't exercised. | Add a Postgres-backed CI job. |
 
@@ -313,7 +313,7 @@ I found these while reading the whole backend. None break the current tests, but
 ## 7. Quick command reference
 
 ```bash
-cd apps/api
+cd backend
 
 # run tests
 ./.venv/bin/python -m pytest -v

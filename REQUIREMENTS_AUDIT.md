@@ -53,7 +53,7 @@ Legend: ✅ done · 🟡 partial/equivalent · ❌ missing · N/A wrong stack
 
 | Requirement | Status | Reality / where |
 |---|---|---|
-| Initialise project | 🟡 | `apps/api` exists, but FastAPI + pip/venv, not Express |
+| Initialise project | 🟡 | `backend` exists, but FastAPI + pip/venv, not Express |
 | ESLint | ❌ | N/A for Python; no Ruff/Flake8 config either |
 | Prettier | ❌ | no formatter config |
 | Folder structure `services/models/routes/controllers/middleware/jobs/utils` | 🟡 | has `services/`, `models/`, `routers/`; no `controllers/`, `middleware/`, `jobs/`, `utils/` |
@@ -175,7 +175,7 @@ The blueprint is written for **Express + MongoDB Atlas + Redis**. Picking one pa
 - Fastest route to a production system.
 
 **Option B — Follow the blueprint literally (Express/Mongo/Redis)**
-- Treat the current FastAPI backend as a prototype, start a new `apps/api-node`.
+- Treat the current FastAPI backend as a prototype, start a new `backend-node`.
 - Everything in this audit becomes greenfield; very little code carries over.
 - Better only if you specifically need the Node/Mongo ecosystem or team skills.
 

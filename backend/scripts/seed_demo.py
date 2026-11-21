@@ -1,7 +1,7 @@
 """Seed Supabase with the frontend demo fixtures.
 
 Idempotent: existing users/vehicles/bookings/mechanics are skipped by their
-unique keys. Run from apps/api:
+unique keys. Run from backend:
 
     python -m scripts.seed_demo
 

@@ -11,7 +11,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
-apps/api/.env
+backend/.env
 
 # Local uploads
-apps/api/uploads/
+backend/uploads/

@@ -1,6 +1,6 @@
 """Create the first owner account.
 
-Run from `apps/api` with:
+Run from `backend` with:
 
     python -m scripts.seed_owner
 
