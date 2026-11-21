@@ -36,6 +36,7 @@ import {
   type BackendVehicle,
 } from './backend'
 import { buildDashboardData } from '../features/dashboard/dashboardData'
+import { compressImage } from '../lib/image'
 
 const isWeb = __APP_TARGET__ === 'web'
 
@@ -112,7 +113,8 @@ export function useUploadVehiclePhoto() {
   return useMutation({
     mutationFn: async ({ vehicleId, file, caption }: { vehicleId: string; file: File; caption?: string }) => {
       const body = new FormData()
-      body.append('file', file)
+      const compressed = await compressImage(file)
+      body.append('file', compressed)
       if (caption?.trim()) body.append('caption', caption.trim())
       return apiClient.upload<VehiclePhoto>(`/vehicles/${encodeURIComponent(vehicleId)}/photos`, body, () => undefined)
     },

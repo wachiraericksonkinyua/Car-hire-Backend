@@ -162,12 +162,21 @@ export function FleetPage() {
     setNotice(null)
     try {
       const created = await apiClient.post<{ id: string }>('/vehicles', vehiclePayload(form))
+      const failures: string[] = []
       for (const image of pendingImages) {
-        await uploadPhoto.mutateAsync({ vehicleId: created.id, file: image.file, caption: image.caption })
+        try {
+          await uploadPhoto.mutateAsync({ vehicleId: created.id, file: image.file, caption: image.caption })
+        } catch (uploadError) {
+          failures.push(`${image.file.name} (${uploadError instanceof Error ? uploadError.message : 'upload failed'})`)
+        }
       }
       setForm(emptyVehicle)
       setPendingImages([])
-      setNotice(pendingImages.length > 0 ? 'Vehicle added with images.' : 'Vehicle added.')
+      if (failures.length > 0) {
+        setNotice(`Vehicle added, but ${failures.length} of ${pendingImages.length} images failed: ${failures.join('; ')}`)
+      } else {
+        setNotice(pendingImages.length > 0 ? `Vehicle added with ${pendingImages.length} images.` : 'Vehicle added.')
+      }
       await refresh()
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not add vehicle.')
@@ -215,15 +224,20 @@ export function FleetPage() {
   async function uploadEditingImages(files: File[]) {
     if (!editing) return
     setNotice(null)
-    try {
-      for (const file of files) {
+    let uploaded = 0
+    const failures: string[] = []
+    for (const file of files) {
+      try {
         const photo = await uploadPhoto.mutateAsync({ vehicleId: editing.id, file })
+        uploaded += 1
         setEditing((current) => current ? { ...current, photos: [...(current.photos ?? []), photo] } : current)
+      } catch (error) {
+        failures.push(`${file.name} (${error instanceof Error ? error.message : 'upload failed'})`)
       }
-      setNotice('Vehicle images uploaded.')
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Could not upload vehicle images.')
     }
+    setNotice(failures.length > 0
+      ? `${uploaded} of ${files.length} images uploaded. Failed: ${failures.join('; ')}`
+      : `${uploaded} vehicle image(s) uploaded.`)
   }
 
   async function deleteEditingImage(photoId: string) {
