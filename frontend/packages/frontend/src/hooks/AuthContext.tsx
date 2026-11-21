@@ -8,6 +8,7 @@ type AuthContextValue = {
   isLoading: boolean
   login: (email: string, password: string) => Promise<User>
   logout: () => Promise<void>
+  updateUser: (user: User) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -63,8 +64,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }
 
+  function updateUser(nextUser: User) {
+    setUser(nextUser)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, role: user?.role ?? null, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, role: user?.role ?? null, isLoading, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

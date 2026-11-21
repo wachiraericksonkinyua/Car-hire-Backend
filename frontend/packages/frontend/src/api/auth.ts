@@ -7,6 +7,7 @@ interface BackendUser {
   full_name: string
   role: User['role']
   is_active: boolean
+  avatar_url?: string | null
 }
 
 function mapUser(user: BackendUser): User {
@@ -17,6 +18,7 @@ function mapUser(user: BackendUser): User {
     phone: '',
     role: user.role,
     active: user.is_active,
+    avatarUrl: user.avatar_url ?? undefined,
   }
 }
 

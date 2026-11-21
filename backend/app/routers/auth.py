@@ -5,10 +5,22 @@ memory). The refresh token is set as an HttpOnly cookie, stored only as a hash,
 and rotated on every use.
 """
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
+from uuid import UUID
+
+from fastapi import (
+    APIRouter,
+    Cookie,
+    Depends,
+    File,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_current_user_payload
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.rate_limit import check_login_rate_limit, clear_login_rate_limit
@@ -22,6 +34,7 @@ from app.services.auth_service import (
     issue_refresh_token,
     revoke_refresh_token,
 )
+from app.services.image_service import delete_image_file, store_image
 from app.utils.time import as_utc, utc_now
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -179,4 +192,25 @@ async def logout(
 async def read_current_user(
     user: User = Depends(get_current_user),
 ):
+    return {"data": user}
+
+
+@router.post("/me/avatar", response_model=SuccessEnvelope[UserResponse])
+async def upload_current_user_avatar(
+    request: Request,
+    file: UploadFile = File(...),
+    payload: dict = Depends(get_current_user_payload),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload or replace the current user's profile picture."""
+    user = await db.get(User, UUID(payload["sub"]))
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    url = await store_image(file, request=request, folder="avatars", owner_id=user.id)
+    previous = user.avatar_url
+    user.avatar_url = url
+    await db.flush()
+    await db.refresh(user)
+    delete_image_file(previous)
     return {"data": user}

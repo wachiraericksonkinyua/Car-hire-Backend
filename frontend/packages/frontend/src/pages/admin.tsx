@@ -4,7 +4,7 @@ import { Button, ConfirmDialog, DataTable, Input, Modal, Select, Toast } from '.
 import { useAuth } from '../hooks/AuthContext'
 import { canApproveBooking } from '../hooks/useCan'
 import { useTranslation } from '../i18n'
-import type { AuditEntry, Booking, PaymentMethod, StaffMember, UserRole, Vehicle } from '../api/types'
+import type { AuditEntry, Booking, PaymentMethod, StaffMember, User, UserRole, Vehicle } from '../api/types'
 import { apiClient } from '../api/client'
 import { useBookingList, useDeleteVehiclePhoto, useStorage, useUpdateVehiclePhotoCaption, useUploadVehiclePhoto, useVehicles } from '../api/queries'
 import { formatKes } from '../lib'
@@ -19,6 +19,7 @@ interface BackendStaff {
   role: UserRole
   is_active: boolean
   last_login_at: string | null
+  photo_url?: string | null
 }
 
 interface BackendAudit {
@@ -437,18 +438,77 @@ export function FleetPage() {
 }
 
 export function ProfilePage() {
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
+  const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  async function uploadAvatar(file: File) {
+    setSaving(true)
+    setNotice(null)
+    try {
+      const body = new FormData()
+      body.append('file', file)
+      await apiClient.upload(`/auth/me/avatar`, body, () => undefined)
+      // Refetch the current user so the navbar avatar updates immediately.
+      const refreshed = await apiClient.get<BackendUser>('/auth/me')
+      updateUser(mapUserToFrontend(refreshed))
+      setNotice('Profile picture updated.')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not upload the profile picture.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <section className="page-shell">
       <header className="page-header"><div><p className="eyebrow">AutoHire KE</p><h1>Profile</h1></div></header>
+      {notice && <p className="field__hint" role="status">{notice}</p>}
       <div className="card-panel stack stack--md">
         <div><span className="label">Name</span><strong>{user?.name}</strong></div>
         <div><span className="label">Email</span><strong>{user?.email}</strong></div>
         <div><span className="label">Role</span><strong>{user?.role}</strong></div>
+        <div className="profile-avatar-upload">
+          {user?.avatarUrl
+            ? <img alt="Profile picture" className="profile-avatar-photo" src={user.avatarUrl} />
+            : <span aria-hidden="true" className="staff-avatar">{user?.name.slice(0, 1).toUpperCase()}</span>}
+          <input
+            accept="image/jpeg,image/png,image/webp"
+            hidden
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0]
+              event.currentTarget.value = ''
+              if (file) void uploadAvatar(file)
+            }}
+            type="file"
+          />
+          <Button disabled={saving} size="sm">Upload profile picture</Button>
+        </div>
         <p className="field__hint">Password changes are not available in this MVP yet.</p>
       </div>
     </section>
   )
+}
+
+interface BackendUser {
+  id: string
+  email: string
+  full_name: string
+  role: UserRole
+  is_active: boolean
+  avatar_url?: string | null
+}
+
+function mapUserToFrontend(user: BackendUser): User {
+  return {
+    id: user.id,
+    name: user.full_name,
+    email: user.email,
+    phone: '',
+    role: user.role,
+    active: user.is_active,
+    avatarUrl: user.avatar_url ?? undefined,
+  }
 }
 
 export function ApprovalsPage() {
@@ -619,7 +679,7 @@ export function ApprovalsPage() {
 }
 
 export function StaffPage() {
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
   const queryClient = useQueryClient()
   const staffQuery = useQuery({
     queryKey: ['staff'],
@@ -736,8 +796,12 @@ export function StaffPage() {
     try {
       const body = new FormData()
       body.append('file', file)
-      await apiClient.upload(`/staff/${encodeURIComponent(member.id)}/photo`, body, () => undefined)
+      const result = await apiClient.upload<BackendStaff>(`/staff/${encodeURIComponent(member.id)}/photo`, body, () => undefined)
       await refreshStaff()
+      // If the current user's photo was updated, refresh the navbar avatar.
+      if (user && user.id === result.id && result.avatar_url) {
+        updateUser({ ...user, avatarUrl: result.avatar_url })
+      }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not upload the profile image.')
     }

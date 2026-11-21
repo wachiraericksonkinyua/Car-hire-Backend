@@ -132,6 +132,7 @@ export interface User {
   branch?: string
   active?: boolean
   lastLogin?: string
+  avatarUrl?: string
 }
 
 export interface Driver extends User {

@@ -82,19 +82,17 @@ function NotificationsMenu({ pendingApprovals, openIncidents }: { pendingApprova
   )
 }
 
-function UserMenu({ name, role, onLogout }: { name: string; role: UserRole; onLogout: () => void }) {
-  const [open, setOpen] = useState(false)
+function UserMenu({ user, onLogout }: { user: { id: string; name: string; role: UserRole; avatarUrl?: string }; onLogout: () => void }) {
+  const name = user.name
   return (
-    <div className="staff-popover-wrap">
-      <button aria-expanded={open} aria-haspopup="true" className="staff-user-menu" onClick={() => setOpen(!open)} type="button">
-        <span aria-hidden="true" className="staff-avatar">{name.slice(0, 1).toUpperCase()}</span>
+    <div className="staff-user-menu">
+      <Link aria-label={`View ${name} profile`} to="/admin/profile">
+        {user.avatarUrl
+          ? <img alt={`${name} avatar`} className="staff-avatar staff-avatar--photo" src={user.avatarUrl} />
+          : <span aria-hidden="true" className="staff-avatar">{name.slice(0, 1).toUpperCase()}</span>}
         <span className="staff-user-menu__name">{name}</span>
-      </button>
-      {open && <div className="staff-popover staff-popover--user" role="group">
-        <span className="staff-user-role">{t(`role.${role}`)}</span>
-        <Link onClick={() => setOpen(false)} to="/admin/profile">{t('admin.profile')}</Link>
-        <button onClick={onLogout} type="button"><LogOut aria-hidden="true" size={16} />{t('admin.logout')}</button>
-      </div>}
+      </Link>
+      <button aria-label={`${t('admin.logout')}`} className="staff-topbar-logout" onClick={onLogout} title={t('admin.logout')} type="button"><LogOut aria-hidden="true" size={18} /></button>
     </div>
   )
 }
@@ -157,7 +155,7 @@ export function StaffLayout() {
             <GlobalSearch />
             <NotificationsMenu openIncidents={openIncidents} pendingApprovals={pendingApprovals} />
             <IconButton icon={theme === 'light' ? <Moon size={18} /> : <Sun size={18} />} label={t(theme === 'light' ? 'styleguide.dark' : 'styleguide.light')} onClick={toggleTheme} />
-            {user && <UserMenu name={user.name} onLogout={() => void signOut()} role={user.role} />}
+            {user && <UserMenu onLogout={() => void signOut()} user={user} />}
           </div>
         </header>
         <main className="staff-content">

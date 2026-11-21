@@ -246,8 +246,12 @@
 .staff-popover > button { cursor: pointer; justify-content: flex-start; }
 .staff-popover--user { width: 220px; }
 .staff-popover .staff-user-role { min-height: 32px; color: var(--ink-muted); font-size: 12px; }
-.staff-user-menu { min-height: 44px; padding: 0 4px; display: inline-flex; align-items: center; gap: 9px; border: 0; color: var(--ink); background: transparent; cursor: pointer; }
-.staff-user-menu__name { max-width: 138px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+.staff-user-menu { min-height: 44px; display: flex; align-items: center; gap: 4px; }
+.staff-user-menu > a { min-height: 44px; display: inline-flex; align-items: center; gap: 9px; padding: 0 8px; border-radius: 8px; color: var(--ink); background: transparent; text-decoration: none; cursor: pointer; }
+.staff-user-menu > a:hover { background: var(--surface-muted); }
+.staff-user-menu__name { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+.staff-topbar-logout { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; padding: 0 8px; border: 0; border-radius: 8px; color: var(--ink-muted); background: transparent; cursor: pointer; }
+.staff-topbar-logout:hover { color: var(--danger); background: var(--surface-muted); }
 .staff-avatar { width: 32px; height: 32px; flex: 0 0 32px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: #6d28d9; font-size: 13px; font-weight: 700; }
 .notification-count { position: absolute; top: 0; right: 0; min-width: 17px; height: 17px; padding: 0 4px; display: grid; place-items: center; border: 2px solid var(--surface); border-radius: 999px; color: #fff; background: #b91c1c; font-size: 9px; font-weight: 700; }
 .offline-banner { min-height: 38px; padding: 7px 18px; color: #713f12; background: #fef3c7; text-align: center; font-size: 12px; font-weight: 600; }
@@ -1165,3 +1169,20 @@
   from { opacity: 0; transform: translateX(100%); }
   to { opacity: 1; transform: translateX(0); }
 }
+
+.profile-avatar-upload {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-start;
+}
+.profile-avatar-photo {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  height: 64px;
+  object-fit: cover;
+  width: 64px;
+}
+
+.staff-avatar--photo { object-fit: cover; }
+.staff-user-menu .staff-avatar--photo { width: 28px; height: 28px; }
