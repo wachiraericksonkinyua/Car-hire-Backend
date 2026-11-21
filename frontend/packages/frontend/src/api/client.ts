@@ -36,7 +36,7 @@ export function getAccessToken() {
   return accessToken
 }
 
-async function refreshAccessToken(): Promise<boolean> {
+async function performRefresh(): Promise<boolean> {
   try {
     const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: 'POST',
@@ -50,6 +50,21 @@ async function refreshAccessToken(): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+// Refresh tokens rotate on every use. If several requests (or React
+// StrictMode's double effect) hit 401 together, only one refresh may run;
+// the rest must wait for the same result instead of racing with the old
+// cookie and receiving a 401.
+let refreshInFlight: Promise<boolean> | null = null
+
+function refreshAccessToken(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = performRefresh().finally(() => {
+      refreshInFlight = null
+    })
+  }
+  return refreshInFlight
 }
 
 async function request<T>(path: string, init: RequestInit = {}, canRefresh = true): Promise<T> {

@@ -99,10 +99,24 @@ async def validation_exception_handler(
         }
         for error in exc.errors()
     ]
+    logger.warning(
+        "validation_error request_id=%s method=%s path=%s fields=%s",
+        _request_id(request),
+        request.method,
+        request.url.path,
+        details,
+    )
+    first = details[0] if details else None
+    field = first["loc"][-1] if first and first["loc"] else None
+    message = (
+        f"Validation failed: {field} - {first['msg']}"
+        if first and field
+        else "Validation failed"
+    )
     return _error_response(
         request,
         422,
-        message="Validation failed",
+        message=message,
         details=details,
     )
 
