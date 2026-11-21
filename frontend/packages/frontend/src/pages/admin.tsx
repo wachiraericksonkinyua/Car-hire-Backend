@@ -6,7 +6,7 @@ import { canApproveBooking } from '../hooks/useCan'
 import { useTranslation } from '../i18n'
 import type { AuditEntry, Booking, PaymentMethod, StaffMember, UserRole, Vehicle } from '../api/types'
 import { apiClient } from '../api/client'
-import { useBookingList, useVehicles } from '../api/queries'
+import { useBookingList, useDeleteVehiclePhoto, useStorage, useUploadVehiclePhoto, useVehicles } from '../api/queries'
 import { formatKes } from '../lib'
 import { PagePlaceholder } from './PagePlaceholder'
 
@@ -54,6 +54,13 @@ const roleOptions = [
   { value: 'driver', label: 'Driver' },
   { value: 'mechanic', label: 'Mechanic' },
 ] as const
+
+function formatBytes(bytes: number | undefined) {
+  if (!bytes || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)))
+  return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`
+}
 
 function formatTime(value: string | undefined, showDate = true) {
   if (!value) return '—'
@@ -109,6 +116,9 @@ export function FleetPage() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const vehiclesQuery = useVehicles()
+  const storageQuery = useStorage()
+  const uploadPhoto = useUploadVehiclePhoto()
+  const removePhoto = useDeleteVehiclePhoto()
   const canManage = user?.role === 'owner' || user?.role === 'manager'
   const [form, setForm] = useState(emptyVehicle)
   const [notice, setNotice] = useState<string | null>(null)
@@ -116,6 +126,7 @@ export function FleetPage() {
   const [editing, setEditing] = useState<Vehicle | null>(null)
   const [deleting, setDeleting] = useState<Vehicle | null>(null)
   const [editForm, setEditForm] = useState<Record<string, string | number>>({})
+  const [pendingImages, setPendingImages] = useState<File[]>([])
 
   async function refresh() {
     await Promise.all([
@@ -149,9 +160,13 @@ export function FleetPage() {
     setSaving(true)
     setNotice(null)
     try {
-      await apiClient.post('/vehicles', vehiclePayload(form))
+      const created = await apiClient.post<{ id: string }>('/vehicles', vehiclePayload(form))
+      for (const file of pendingImages) {
+        await uploadPhoto.mutateAsync({ vehicleId: created.id, file })
+      }
       setForm(emptyVehicle)
-      setNotice('Vehicle added.')
+      setPendingImages([])
+      setNotice(pendingImages.length > 0 ? 'Vehicle added with images.' : 'Vehicle added.')
       await refresh()
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not add vehicle.')
@@ -196,17 +211,46 @@ export function FleetPage() {
     }
   }
 
-  async function deleteVehicle() {
-    if (!deleting) return
-    setSaving(true)
+  async function uploadEditingImages(files: File[]) {
+    if (!editing) return
     setNotice(null)
     try {
-      await apiClient.delete(`/vehicles/${encodeURIComponent(deleting.id)}`)
-      setDeleting(null)
-      setNotice('Vehicle deleted.')
+      for (const file of files) {
+        const photo = await uploadPhoto.mutateAsync({ vehicleId: editing.id, file })
+        setEditing((current) => current ? { ...current, photos: [...(current.photos ?? []), photo] } : current)
+      }
+      setNotice('Vehicle images uploaded.')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not upload vehicle images.')
+    }
+  }
+
+  async function deleteEditingImage(photoId: string) {
+    if (!editing) return
+    try {
+      await removePhoto.mutateAsync({ vehicleId: editing.id, photoId })
+      setEditing((current) => current ? { ...current, photos: (current.photos ?? []).filter((photo) => photo.id !== photoId) } : current)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not delete the image.')
+    }
+  }
+
+  async function deleteVehicle() {
+    if (!deleting) return
+    const target = deleting
+    setSaving(true)
+    setNotice(null)
+    setDeleting(null)
+    try {
+      await apiClient.delete(`/vehicles/${encodeURIComponent(target.id)}`)
+      setNotice(`${target.registration} was deleted.`)
       await refresh()
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Could not delete vehicle.')
+      setNotice(
+        error instanceof Error
+          ? `${target.registration} could not be deleted: ${error.message}`
+          : `${target.registration} could not be deleted.`,
+      )
     } finally {
       setSaving(false)
     }
@@ -227,10 +271,35 @@ export function FleetPage() {
       <header className="page-header"><div><p className="eyebrow">AutoHire KE</p><h1>Fleet</h1></div><span>{vehiclesQuery.data?.length ?? 0} vehicles</span></header>
       <div className="stack stack--lg">
         {notice && <p className="field__hint" role="status">{notice}</p>}
+        {storageQuery.data && <div className="card-panel stack stack--md">
+          <div className="section-heading"><h2>Storage</h2><span className="muted">Updates every minute</span></div>
+          <div className="storage-grid">
+            <div className="storage-meter">
+              <div className="storage-meter__label"><span>Database</span><strong>{formatBytes(storageQuery.data.database.used_bytes)} / {storageQuery.data.database.quota_mb} MB</strong></div>
+              <div className="storage-meter__track"><span style={{ width: `${Math.min(100, storageQuery.data.database.percent_used)}%` }} /></div>
+              <small>{storageQuery.data.database.percent_used}% of configured quota</small>
+            </div>
+            <div className="storage-meter">
+              <div className="storage-meter__label"><span>Host disk</span><strong>{formatBytes(storageQuery.data.disk.free_bytes)} free</strong></div>
+              <div className="storage-meter__track"><span style={{ width: `${Math.min(100, storageQuery.data.disk.percent_used)}%` }} /></div>
+              <small>{formatBytes(storageQuery.data.disk.used_bytes)} used of {formatBytes(storageQuery.data.disk.total_bytes)}</small>
+            </div>
+            <div className="storage-meter">
+              <div className="storage-meter__label"><span>Uploaded files</span><strong>{formatBytes(storageQuery.data.uploads.used_bytes)}</strong></div>
+              <small>Inspection, staff and driver photos on disk</small>
+            </div>
+          </div>
+          {storageQuery.data.tables.length > 0 && <details>
+            <summary className="muted">Largest database tables</summary>
+            <ul className="storage-table-list">
+              {storageQuery.data.tables.slice(0, 8).map((table) => <li key={table.name}><span>{table.name}</span><strong>{formatBytes(table.bytes)}</strong></li>)}
+            </ul>
+          </details>}
+        </div>}
         <div className="card-panel">
           <DataTable
             columns={[
-              { key: 'vehicle', header: 'Vehicle', render: (row) => <><strong>{row.make} {row.model}</strong><div className="muted">{row.registration}</div></> },
+              { key: 'vehicle', header: 'Vehicle', render: (row) => <div className="fleet-vehicle-cell">{row.photos?.[0] && <img alt="" className="fleet-thumb" src={row.photos[0].url} />}<div><strong>{row.make} {row.model}</strong><div className="muted">{row.registration}</div></div></div> },
               { key: 'year', header: 'Year', render: (row) => row.year },
               { key: 'category', header: 'Category', render: (row) => row.category ?? '—' },
               { key: 'seats', header: 'Seats', render: (row) => row.seats },
@@ -268,6 +337,14 @@ export function FleetPage() {
             <Input label="Mileage cap (km)" onChange={(event) => setForm({ ...form, mileage_cap_km: Number(event.target.value) })} type="number" value={form.mileage_cap_km} />
             <Input label="Insurance expiry" onChange={(event) => setForm({ ...form, insurance_expiry: event.target.value })} type="date" value={form.insurance_expiry} />
           </div>
+          <label className="button button--secondary button--sm">
+            Add vehicle images
+            <input accept="image/jpeg,image/png,image/webp" hidden multiple onChange={(event) => {
+              setPendingImages(Array.from(event.currentTarget.files ?? []))
+              event.currentTarget.value = ''
+            }} type="file" />
+          </label>
+          {pendingImages.length > 0 && <p className="field__hint" role="status">{pendingImages.length} image(s) will be uploaded with the vehicle.</p>}
           <Button disabled={saving} type="submit">{saving ? 'Saving…' : 'Add vehicle'}</Button>
         </form>}
       </div>
@@ -285,6 +362,23 @@ export function FleetPage() {
             <Input label="Mileage cap (km)" onChange={(event) => setEditForm({ ...editForm, mileage_cap_km: Number(event.target.value) })} type="number" value={Number(editForm.mileage_cap_km ?? 0)} />
             <Input label="Insurance expiry" onChange={(event) => setEditForm({ ...editForm, insurance_expiry: event.target.value })} type="date" value={String(editForm.insurance_expiry ?? '')} />
           </div>
+          <div className="vehicle-photo-editor">
+            <div className="section-heading"><h3>Vehicle images</h3><span className="muted">Stored in PostgreSQL</span></div>
+            {(editing.photos ?? []).length > 0
+              ? <div className="vehicle-photo-grid">{(editing.photos ?? []).map((photo) => <figure key={photo.id}>
+                <img alt="Vehicle" src={photo.url} />
+                <Button onClick={() => void deleteEditingImage(photo.id)} size="sm" variant="ghost">Remove</Button>
+              </figure>)}</div>
+              : <p className="field__hint">No images yet. Add the first one below.</p>}
+            <label className="button button--secondary button--sm">
+              Add images
+              <input accept="image/jpeg,image/png,image/webp" hidden multiple onChange={(event) => {
+                const files = Array.from(event.currentTarget.files ?? [])
+                event.currentTarget.value = ''
+                if (files.length > 0) void uploadEditingImages(files)
+              }} type="file" />
+            </label>
+          </div>
           <div className="confirm-dialog__actions">
             <Button onClick={() => setEditing(null)} variant="secondary">Cancel</Button>
             <Button disabled={saving} onClick={() => void saveEdit()}>{saving ? 'Saving…' : 'Save vehicle'}</Button>
@@ -295,7 +389,7 @@ export function FleetPage() {
       <ConfirmDialog
         cancelLabel="Cancel"
         confirmLabel="Delete vehicle"
-        description={deleting ? `Delete ${deleting.registration}? Vehicles with booking or incident history cannot be deleted.` : ''}
+        description={deleting ? `Permanently delete ${deleting.registration} and every booking, payment, inspection, incident and image linked to it? This cannot be undone.` : ''}
         onCancel={() => setDeleting(null)}
         onConfirm={() => void deleteVehicle()}
         open={Boolean(deleting)}

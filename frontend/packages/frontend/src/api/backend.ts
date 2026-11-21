@@ -28,6 +28,7 @@ export interface BackendVehicle {
   mileage_cap_km: number
   insurance_expiry: string
   status: string
+  photos?: { id: string; url: string; sort_order: number }[]
 }
 
 export interface BackendBooking {
@@ -182,6 +183,7 @@ export function mapVehicle(vehicle: BackendVehicle): Vehicle {
     mileageCapKm: vehicle.mileage_cap_km,
     insuranceExpiry: vehicle.insurance_expiry,
     status: vehicle.status === 'Maintenance' ? 'maintenance' : vehicle.status === 'Available' ? 'available' : 'booked',
+    photos: (vehicle.photos ?? []).map((photo) => ({ id: photo.id, url: photo.url })),
   }
 }
 

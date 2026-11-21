@@ -40,10 +40,12 @@ function statusClass(status: string): string {
   return status.toLowerCase().replace(/\s+/g, '-')
 }
 
-function VehicleCard({ vehicle, from, to }: { vehicle: { id: string; brand: string; model: string; year: number; category: string; seats: number; transmission: string; daily_rate_kes: number; status: string; plate_number: string }, from: string, to: string }) {
+function VehicleCard({ vehicle, from, to }: { vehicle: { id: string; brand: string; model: string; year: number; category: string; seats: number; transmission: string; daily_rate_kes: number; status: string; plate_number: string; photos?: { url: string }[] }, from: string, to: string }) {
   return (
     <article className="customer-vehicle-card">
-      <div className="customer-vehicle-card__photo" aria-hidden="true">{vehicle.brand.slice(0, 1)}</div>
+      <div className="customer-vehicle-card__photo" aria-hidden="true">
+        {vehicle.photos?.[0] ? <img alt="" src={vehicle.photos[0].url} /> : vehicle.brand.slice(0, 1)}
+      </div>
       <div className="customer-vehicle-card__body">
         <div className="customer-vehicle-card__heading">
           <div>

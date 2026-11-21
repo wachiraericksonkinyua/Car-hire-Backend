@@ -19,6 +19,7 @@ export interface PublicVehicle {
   status: string
   insurance_expired: boolean
   created_at: string
+  photos?: { id: string; url: string; sort_order: number }[]
 }
 
 export interface PublicVehicleList {

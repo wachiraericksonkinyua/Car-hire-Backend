@@ -375,17 +375,54 @@ async def test_booking_overlap_returns_409(db_session, api_client):
 
 
 @pytest.mark.asyncio
-async def test_vehicle_delete_guards_history(db_session, api_client):
+async def test_vehicle_delete_cascades_history(db_session, api_client):
     await _seed(db_session)
     _login(api_client, OWNER_ID, "owner")
 
-    deleted = await api_client.delete(f"/api/v1/vehicles/{V_FREE}")
+    deleted = await api_client.delete(f"/api/v1/vehicles/{V_RESERVED}")
     assert deleted.status_code == 200
-    assert deleted.json()["data"]["deleted"] is True
+    body = deleted.json()["data"]
+    assert body["deleted"] is True
+    assert body["bookings_deleted"] == 1
+    assert body["incidents_deleted"] == 0
 
-    blocked = await api_client.delete(f"/api/v1/vehicles/{V_RESERVED}")
-    assert blocked.status_code == 409
+    assert await db_session.get(Vehicle, V_RESERVED) is None
+    remaining = await db_session.scalar(
+        select(Booking.id).where(Booking.vehicle_id == V_RESERVED)
+    )
+    assert remaining is None
 
     _login(api_client, AGENT_ID, "agent")
-    forbidden = await api_client.delete(f"/api/v1/vehicles/{V_MAINT}")
+    forbidden = await api_client.delete(f"/api/v1/vehicles/{V_FREE}")
     assert forbidden.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_vehicle_photo_upload_and_public_serving(db_session, api_client):
+    await _seed(db_session)
+    _login(api_client, OWNER_ID, "owner")
+
+    uploaded = await api_client.post(
+        f"/api/v1/vehicles/{V_FREE}/photos",
+        files={"file": ("car.png", b"\x89PNG\r\n\x1a\n", "image/png")},
+    )
+    assert uploaded.status_code == 200
+    photo = uploaded.json()["data"]
+    assert photo["url"].endswith(
+        f"/api/v1/public/vehicles/{V_FREE}/photos/{photo['id']}"
+    )
+
+    served = await api_client.get(
+        f"/api/v1/public/vehicles/{V_FREE}/photos/{photo['id']}"
+    )
+    assert served.status_code == 200
+    assert served.headers["content-type"] == "image/png"
+
+    listed = await api_client.get(f"/api/v1/vehicles/{V_FREE}")
+    assert listed.status_code == 200
+    assert len(listed.json()["data"]["photos"]) == 1
+
+    removed = await api_client.delete(
+        f"/api/v1/vehicles/{V_FREE}/photos/{photo['id']}"
+    )
+    assert removed.status_code == 200

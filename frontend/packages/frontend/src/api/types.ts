@@ -169,6 +169,11 @@ export interface AuditEntry {
   after?: Record<string, unknown>
 }
 
+export interface VehiclePhoto {
+  id: string
+  url: string
+}
+
 export interface Vehicle {
   id: string
   make: string
@@ -185,6 +190,14 @@ export interface Vehicle {
   mileageCapKm?: number
   insuranceExpiry?: string
   status: VehicleStatus
+  photos?: VehiclePhoto[]
+}
+
+export interface StorageOverview {
+  database: { used_bytes: number; quota_bytes: number; quota_mb: number; percent_used: number }
+  uploads: { used_bytes: number }
+  disk: { total_bytes: number; used_bytes: number; free_bytes: number; percent_used: number }
+  tables: { name: string; bytes: number }[]
 }
 
 export interface MaintenanceWindow {

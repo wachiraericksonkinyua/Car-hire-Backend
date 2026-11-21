@@ -9,14 +9,17 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import Response
 from pydantic import BaseModel, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.models.booking import Booking, BookingStatus
 from app.models.payment import Payment
 from app.models.vehicle import Vehicle, VehicleStatus
+from app.models.vehicle_photo import VehiclePhoto
 from app.schemas.booking import (
     BookingCreate,
     PublicBookingResponse,
@@ -115,6 +118,10 @@ def _vehicle_response(vehicle: Vehicle, derived: str) -> VehicleResponse:
         status=derived,
         insurance_expired=insurance_expired(vehicle, utc_now().date()),
         created_at=vehicle.created_at,
+        photos=sorted(
+            vehicle.__dict__.get("photos", []),
+            key=lambda photo: photo.sort_order,
+        ),
     )
 
 
@@ -180,6 +187,7 @@ async def public_vehicles(
             is_rented.label("is_rented"),
             is_reserved.label("is_reserved"),
         )
+        .options(selectinload(Vehicle.photos))
         .where(*conditions)
         .order_by(Vehicle.created_at.desc())
         .limit(limit)
@@ -227,9 +235,9 @@ async def public_vehicle(
     is_rented, is_reserved = status_expressions(pickup_at, block_until)
     row = (
         await db.execute(
-            select(Vehicle, is_rented, is_reserved).where(
-                Vehicle.id == vehicle_id
-            )
+            select(Vehicle, is_rented, is_reserved)
+            .options(selectinload(Vehicle.photos))
+            .where(Vehicle.id == vehicle_id)
         )
     ).first()
     if row is None:
@@ -262,6 +270,29 @@ async def public_vehicle(
             ],
         )
     }
+
+
+@router.get("/vehicles/{vehicle_id}/photos/{photo_id}")
+async def public_vehicle_photo(
+    vehicle_id: UUID,
+    photo_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    photo = await db.get(VehiclePhoto, photo_id)
+    if (
+        photo is None
+        or photo.vehicle_id != vehicle_id
+        or photo.data is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vehicle image not found",
+        )
+    return Response(
+        content=photo.data,
+        media_type=photo.content_type or "application/octet-stream",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 
 @router.post(

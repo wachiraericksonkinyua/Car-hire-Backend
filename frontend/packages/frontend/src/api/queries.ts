@@ -15,6 +15,8 @@ import type {
   PaymentMethod,
   QuoteRequest,
   SearchResult,
+  StorageOverview,
+  VehiclePhoto,
 } from './types'
 import {
   mapBooking,
@@ -92,6 +94,49 @@ export function useVehicles(options?: { enabled?: boolean }) {
       return data.items.map(mapVehicle)
     },
     enabled: options?.enabled ?? true,
+  })
+}
+
+export function useStorage() {
+  return useQuery({
+    queryKey: ['system-storage'],
+    queryFn: () => apiClient.get<StorageOverview>('/system/storage'),
+    refetchInterval: 60_000,
+  })
+}
+
+export function useUploadVehiclePhoto() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ vehicleId, file }: { vehicleId: string; file: File }) => {
+      const body = new FormData()
+      body.append('file', file)
+      return apiClient.upload<VehiclePhoto>(`/vehicles/${encodeURIComponent(vehicleId)}/photos`, body, () => undefined)
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+        queryClient.invalidateQueries({ queryKey: ['public-vehicles'] }),
+        queryClient.invalidateQueries({ queryKey: ['public-vehicle'] }),
+        queryClient.invalidateQueries({ queryKey: ['system-storage'] }),
+      ])
+    },
+  })
+}
+
+export function useDeleteVehiclePhoto() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ vehicleId, photoId }: { vehicleId: string; photoId: string }) =>
+      apiClient.delete(`/vehicles/${encodeURIComponent(vehicleId)}/photos/${encodeURIComponent(photoId)}`),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+        queryClient.invalidateQueries({ queryKey: ['public-vehicles'] }),
+        queryClient.invalidateQueries({ queryKey: ['public-vehicle'] }),
+        queryClient.invalidateQueries({ queryKey: ['system-storage'] }),
+      ])
+    },
   })
 }
 

@@ -67,6 +67,15 @@ class VehicleUpdate(BaseModel):
         return normalise_plate(value) if value is not None else None
 
 
+class VehiclePhotoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    url: str
+    sort_order: int
+    created_at: datetime
+
+
 class VehicleResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -88,6 +97,7 @@ class VehicleResponse(BaseModel):
     status: str
     insurance_expired: bool
     created_at: datetime
+    photos: list[VehiclePhotoResponse] = []
 
 
 class VehicleListData(BaseModel):

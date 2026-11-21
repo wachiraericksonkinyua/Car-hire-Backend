@@ -3,16 +3,33 @@
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+import shutil
+from pathlib import Path
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
+from fastapi.responses import Response
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.permissions import Permission, require_permission
 from app.models.booking import Booking
 from app.models.incident import Incident
+from app.models.inspection import Inspection
+from app.models.payment import Payment
 from app.models.vehicle import Vehicle, VehicleStatus
 from app.models.vehicle_photo import VehiclePhoto
+from app.services.driver_service import release_driver_if_idle
 from app.schemas.common import SuccessEnvelope
 from app.schemas.vehicle import (
     BookedRange,
@@ -34,6 +51,8 @@ from app.services.availability_service import (
 from app.utils.time import utc_now
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
+
+UPLOAD_ROOT = Path(__file__).resolve().parents[2] / "uploads"
 
 _AUDITED_FIELDS = [
     "plate_number",
@@ -77,7 +96,14 @@ def _block_until(return_at: datetime) -> datetime:
     return effective_block_until(return_at)
 
 
-def _to_response(vehicle: Vehicle, *, derived: str) -> VehicleResponse:
+def _to_response(
+    vehicle: Vehicle,
+    *,
+    derived: str,
+    photos: list[VehiclePhoto] | None = None,
+) -> VehicleResponse:
+    if photos is None:
+        photos = vehicle.__dict__.get("photos", [])
     return VehicleResponse(
         id=vehicle.id,
         plate_number=vehicle.plate_number,
@@ -97,6 +123,7 @@ def _to_response(vehicle: Vehicle, *, derived: str) -> VehicleResponse:
         status=derived,
         insurance_expired=insurance_expired(vehicle, utc_now().date()),
         created_at=vehicle.created_at,
+        photos=sorted(photos, key=lambda photo: photo.sort_order),
     )
 
 
@@ -161,6 +188,7 @@ async def list_vehicles(
             is_rented.label("is_rented"),
             is_reserved.label("is_reserved"),
         )
+        .options(selectinload(Vehicle.photos))
         .where(*conditions)
         .order_by(Vehicle.created_at.desc())
         .limit(limit)
@@ -211,9 +239,9 @@ async def get_vehicle(
     is_rented, is_reserved = status_expressions(pickup_at, block_until)
     row = (
         await db.execute(
-            select(Vehicle, is_rented, is_reserved).where(
-                Vehicle.id == vehicle_id
-            )
+            select(Vehicle, is_rented, is_reserved)
+            .options(selectinload(Vehicle.photos))
+            .where(Vehicle.id == vehicle_id)
         )
     ).first()
 
@@ -345,7 +373,11 @@ async def delete_vehicle(
     payload: dict = Depends(require_permission(Permission.VEHICLE_MANAGE)),
     db: AsyncSession = Depends(get_db),
 ):
-    """Remove a vehicle that has never been booked or involved in an incident."""
+    """Delete a vehicle and every record that belongs to it.
+
+    Bookings, payments, inspections, incidents and images are removed as
+    well, so the plate can be re-added from scratch later.
+    """
     vehicle = await db.get(Vehicle, vehicle_id)
     if vehicle is None:
         raise HTTPException(
@@ -353,35 +385,81 @@ async def delete_vehicle(
             detail="Vehicle not found",
         )
 
-    has_booking = await db.scalar(
-        select(Booking.id).where(Booking.vehicle_id == vehicle_id).limit(1)
+    booking_ids = list(
+        await db.scalars(
+            select(Booking.id).where(Booking.vehicle_id == vehicle_id)
+        )
     )
-    if has_booking is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "This vehicle has booking history and cannot be deleted. "
-                "Set it to Maintenance instead."
-            ),
+    driver_ids = {
+        driver_id
+        for driver_id in await db.scalars(
+            select(Booking.driver_id).where(
+                Booking.vehicle_id == vehicle_id,
+                Booking.driver_id.is_not(None),
+            )
+        )
+        if driver_id is not None
+    }
+    incident_count = await db.scalar(
+        select(func.count())
+        .select_from(Incident)
+        .where(Incident.vehicle_id == vehicle_id)
+    )
+    payment_count = 0
+    inspection_count = 0
+
+    if booking_ids:
+        payment_count = await db.scalar(
+            select(func.count())
+            .select_from(Payment)
+            .where(Payment.booking_id.in_(booking_ids))
+        )
+        inspection_count = await db.scalar(
+            select(func.count())
+            .select_from(Inspection)
+            .where(Inspection.booking_id.in_(booking_ids))
         )
 
-    has_incident = await db.scalar(
-        select(Incident.id).where(Incident.vehicle_id == vehicle_id).limit(1)
-    )
-    if has_incident is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "This vehicle has incident history and cannot be deleted. "
-                "Set it to Maintenance instead."
-            ),
-        )
+    before = {
+        **snapshot(vehicle, _AUDITED_FIELDS),
+        "bookings_deleted": len(booking_ids),
+        "payments_deleted": payment_count or 0,
+        "inspections_deleted": inspection_count or 0,
+        "incidents_deleted": incident_count or 0,
+    }
 
-    before = snapshot(vehicle, _AUDITED_FIELDS)
+    await db.execute(
+        delete(Incident).where(Incident.vehicle_id == vehicle_id)
+    )
+    if booking_ids:
+        await db.execute(
+            delete(Incident).where(Incident.booking_id.in_(booking_ids))
+        )
+        await db.execute(
+            delete(Payment).where(Payment.booking_id.in_(booking_ids))
+        )
+        await db.execute(
+            delete(Inspection).where(
+                Inspection.booking_id.in_(booking_ids)
+            )
+        )
+        await db.execute(
+            delete(Booking).where(Booking.vehicle_id == vehicle_id)
+        )
     await db.execute(
         delete(VehiclePhoto).where(VehiclePhoto.vehicle_id == vehicle_id)
     )
-    await db.delete(vehicle)
+    await db.execute(delete(Vehicle).where(Vehicle.id == vehicle_id))
+    await db.flush()
+
+    for driver_id in driver_ids:
+        await release_driver_if_idle(db, driver_id)
+
+    for booking_id in booking_ids:
+        shutil.rmtree(
+            UPLOAD_ROOT / "inspections" / str(booking_id),
+            ignore_errors=True,
+        )
 
     await record_audit(
         db,
@@ -394,4 +472,129 @@ async def delete_vehicle(
     )
 
     await db.flush()
-    return {"data": {"id": str(vehicle_id), "deleted": True}}
+    return {
+        "data": {
+            "id": str(vehicle_id),
+            "deleted": True,
+            "bookings_deleted": len(booking_ids),
+            "incidents_deleted": incident_count or 0,
+        }
+    }
+
+
+@router.post("/{vehicle_id}/photos")
+async def upload_vehicle_photo(
+    vehicle_id: UUID,
+    request: Request,
+    file: UploadFile = File(...),
+    _payload: dict = Depends(require_permission(Permission.VEHICLE_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload a vehicle image and store its bytes in PostgreSQL."""
+    vehicle = await db.get(Vehicle, vehicle_id)
+    if vehicle is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vehicle not found",
+        )
+
+    extensions = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+    }
+    if file.content_type not in extensions:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Only JPG, PNG or WebP images are allowed",
+        )
+
+    content = await file.read(5 * 1024 * 1024 + 1)
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Each image must be 5 MB or smaller",
+        )
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="The uploaded image is empty",
+        )
+
+    existing = await db.scalar(
+        select(func.count())
+        .select_from(VehiclePhoto)
+        .where(VehiclePhoto.vehicle_id == vehicle_id)
+    )
+    if (existing or 0) >= 12:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A vehicle can have at most 12 images",
+        )
+
+    photo = VehiclePhoto(
+        vehicle_id=vehicle_id,
+        url="pending",
+        sort_order=existing or 0,
+        data=content,
+        content_type=file.content_type,
+        filename=file.filename,
+        size_bytes=len(content),
+    )
+    db.add(photo)
+    await db.flush()
+    photo.url = (
+        f"{request.base_url}api/v1/public/vehicles/{vehicle_id}"
+        f"/photos/{photo.id}"
+    )
+    await db.flush()
+    await db.refresh(photo)
+    return {
+        "data": {
+            "id": str(photo.id),
+            "url": photo.url,
+            "sort_order": photo.sort_order,
+        }
+    }
+
+
+@router.delete("/{vehicle_id}/photos/{photo_id}")
+async def delete_vehicle_photo(
+    vehicle_id: UUID,
+    photo_id: UUID,
+    _payload: dict = Depends(require_permission(Permission.VEHICLE_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+):
+    photo = await db.get(VehiclePhoto, photo_id)
+    if photo is None or photo.vehicle_id != vehicle_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vehicle image not found",
+        )
+    await db.delete(photo)
+    await db.flush()
+    return {"data": {"id": str(photo_id), "deleted": True}}
+
+
+@router.get("/{vehicle_id}/photos/{photo_id}")
+async def get_vehicle_photo(
+    vehicle_id: UUID,
+    photo_id: UUID,
+    _payload: dict = Depends(require_permission(Permission.VEHICLE_VIEW)),
+    db: AsyncSession = Depends(get_db),
+):
+    photo = await db.get(VehiclePhoto, photo_id)
+    if (
+        photo is None
+        or photo.vehicle_id != vehicle_id
+        or photo.data is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vehicle image not found",
+        )
+    return Response(
+        content=photo.data,
+        media_type=photo.content_type or "application/octet-stream",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )

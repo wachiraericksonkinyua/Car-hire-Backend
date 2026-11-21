@@ -67,6 +67,10 @@ class Settings(BaseSettings):
     LOGIN_RATE_LIMIT_ATTEMPTS: int = Field(default=5, ge=1)
     LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = Field(default=300, ge=1)
 
+    # --- Storage dashboard -----------------------------------------------
+    # Used only for the usage bar. Set this to your database plan's quota.
+    DATABASE_STORAGE_QUOTA_MB: int = Field(default=500, ge=1)
+
     # --- CORS -------------------------------------------------------------
     # Comma-separated list of allowed frontend origins.
     # Example: http://localhost:5173,https://dashboard.autohire.co.ke
