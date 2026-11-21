@@ -8,6 +8,12 @@ export default defineConfig({
   define: {
     __APP_TARGET__: JSON.stringify('web'),
   },
+  resolve: {
+    dedupe: ['react', 'react-dom', 'react-router-dom'],
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-dom/client', 'react-router-dom'],
+  },
   publicDir: fileURLToPath(
     new URL('../../packages/frontend/public', import.meta.url),
   ),
