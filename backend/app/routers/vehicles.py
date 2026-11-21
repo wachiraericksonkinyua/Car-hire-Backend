@@ -54,6 +54,16 @@ router = APIRouter(prefix="/vehicles", tags=["vehicles"])
 
 UPLOAD_ROOT = Path(__file__).resolve().parents[2] / "uploads"
 
+
+def _photo_list_options():
+    """Load photo metadata only, never the image bytes, for list responses."""
+    return selectinload(Vehicle.photos).load_only(
+        VehiclePhoto.id,
+        VehiclePhoto.url,
+        VehiclePhoto.sort_order,
+        VehiclePhoto.created_at,
+    )
+
 _AUDITED_FIELDS = [
     "plate_number",
     "brand",
@@ -188,7 +198,7 @@ async def list_vehicles(
             is_rented.label("is_rented"),
             is_reserved.label("is_reserved"),
         )
-        .options(selectinload(Vehicle.photos))
+        .options(_photo_list_options())
         .where(*conditions)
         .order_by(Vehicle.created_at.desc())
         .limit(limit)
@@ -240,7 +250,7 @@ async def get_vehicle(
     row = (
         await db.execute(
             select(Vehicle, is_rented, is_reserved)
-            .options(selectinload(Vehicle.photos))
+            .options(_photo_list_options())
             .where(Vehicle.id == vehicle_id)
         )
     ).first()

@@ -69,6 +69,16 @@ from app.utils.time import utc_now
 router = APIRouter(prefix="/public", tags=["public"])
 
 
+def _photo_list_options():
+    """Load photo metadata only, never the image bytes, for list responses."""
+    return selectinload(Vehicle.photos).load_only(
+        VehiclePhoto.id,
+        VehiclePhoto.url,
+        VehiclePhoto.sort_order,
+        VehiclePhoto.created_at,
+    )
+
+
 class PublicStkRequest(BaseModel):
     reference: str
     phone_number: str
@@ -187,7 +197,7 @@ async def public_vehicles(
             is_rented.label("is_rented"),
             is_reserved.label("is_reserved"),
         )
-        .options(selectinload(Vehicle.photos))
+        .options(_photo_list_options())
         .where(*conditions)
         .order_by(Vehicle.created_at.desc())
         .limit(limit)
@@ -236,7 +246,7 @@ async def public_vehicle(
     row = (
         await db.execute(
             select(Vehicle, is_rented, is_reserved)
-            .options(selectinload(Vehicle.photos))
+            .options(_photo_list_options())
             .where(Vehicle.id == vehicle_id)
         )
     ).first()

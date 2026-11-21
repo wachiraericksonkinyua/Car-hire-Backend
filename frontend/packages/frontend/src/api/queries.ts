@@ -94,6 +94,7 @@ export function useVehicles(options?: { enabled?: boolean }) {
       return data.items.map(mapVehicle)
     },
     enabled: options?.enabled ?? true,
+    staleTime: 60_000,
   })
 }
 
@@ -101,7 +102,8 @@ export function useStorage() {
   return useQuery({
     queryKey: ['system-storage'],
     queryFn: () => apiClient.get<StorageOverview>('/system/storage'),
-    refetchInterval: 60_000,
+    staleTime: 120_000,
+    refetchInterval: 120_000,
   })
 }
 
@@ -275,6 +277,7 @@ export function useDashboard() {
         throw error
       }
     },
+    staleTime: 30_000,
     refetchInterval: 45_000,
   })
 }

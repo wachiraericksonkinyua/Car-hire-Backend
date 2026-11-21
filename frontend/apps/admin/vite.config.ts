@@ -19,6 +19,9 @@ export default defineConfig({
   ),
   server: {
     port: 5174,
+    fs: {
+      allow: [fileURLToPath(new URL('../..', import.meta.url))],
+    },
   },
   build: {
     outDir: 'dist',

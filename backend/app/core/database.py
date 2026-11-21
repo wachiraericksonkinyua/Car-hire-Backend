@@ -20,7 +20,13 @@ class Base(DeclarativeBase):
 
 # The engine owns the connection pool to PostgreSQL. It is created once,
 # when this module is imported, using the URL from our validated settings.
-engine = create_async_engine(get_settings().DATABASE_URL)
+engine = create_async_engine(
+    get_settings().DATABASE_URL,
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=30,
+    pool_recycle=1800,
+)
 
 
 # A session factory. Each call to `SessionLocal()` creates a new short-lived

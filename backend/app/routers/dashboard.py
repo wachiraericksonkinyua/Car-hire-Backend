@@ -90,60 +90,75 @@ async def dashboard(
     month_start, month_end = _month_bounds(now)
     role = payload.get("role")
 
-    vehicles_out = await db.scalar(
-        select(func.count())
-        .select_from(Booking)
-        .where(
-            Booking.status.in_(
-                [BookingStatus.CHECKED_OUT, BookingStatus.OVERDUE]
+    # One round trip for all KPI counters. On a remote database every
+    # separate query costs a full network round trip, so batching matters.
+    kpi_row = (
+        await db.execute(
+            select(
+                select(func.count())
+                .select_from(Booking)
+                .where(
+                    Booking.status.in_(
+                        [
+                            BookingStatus.CHECKED_OUT,
+                            BookingStatus.OVERDUE,
+                        ]
+                    )
+                )
+                .scalar_subquery()
+                .label("vehicles_out"),
+                select(func.count())
+                .select_from(Booking)
+                .where(
+                    Booking.status.in_(
+                        [
+                            BookingStatus.RESERVED,
+                            BookingStatus.CONFIRMED,
+                        ]
+                    ),
+                    Booking.pickup_at >= day_start,
+                    Booking.pickup_at < day_end,
+                )
+                .scalar_subquery()
+                .label("pickups_due"),
+                select(func.count())
+                .select_from(Booking)
+                .where(
+                    Booking.status.in_(
+                        [
+                            BookingStatus.CHECKED_OUT,
+                            BookingStatus.OVERDUE,
+                        ]
+                    ),
+                    Booking.return_at >= day_start,
+                    Booking.return_at < day_end,
+                )
+                .scalar_subquery()
+                .label("returns_due"),
+                select(func.count())
+                .select_from(Booking)
+                .where(Booking.status == BookingStatus.OVERDUE)
+                .scalar_subquery()
+                .label("overdue"),
+                select(func.count())
+                .select_from(Booking)
+                .where(
+                    Booking.status == BookingStatus.RESERVED,
+                    Booking.payment_method.is_(None),
+                )
+                .scalar_subquery()
+                .label("pending_approvals"),
+                select(func.count())
+                .select_from(Incident)
+                .where(Incident.status.in_(_ACTIVE_INCIDENTS))
+                .scalar_subquery()
+                .label("active_breakdowns"),
             )
         )
-    )
-
-    pickups_due = await db.scalar(
-        select(func.count())
-        .select_from(Booking)
-        .where(
-            Booking.status.in_(
-                [BookingStatus.RESERVED, BookingStatus.CONFIRMED]
-            ),
-            Booking.pickup_at >= day_start,
-            Booking.pickup_at < day_end,
-        )
-    )
-
-    returns_due = await db.scalar(
-        select(func.count())
-        .select_from(Booking)
-        .where(
-            Booking.status.in_(
-                [BookingStatus.CHECKED_OUT, BookingStatus.OVERDUE]
-            ),
-            Booking.return_at >= day_start,
-            Booking.return_at < day_end,
-        )
-    )
-
-    overdue = await db.scalar(
-        select(func.count())
-        .select_from(Booking)
-        .where(Booking.status == BookingStatus.OVERDUE)
-    )
-
-    pending_approvals = await db.scalar(
-        select(func.count())
-        .select_from(Booking)
-        .where(
-            Booking.status == BookingStatus.RESERVED,
-            Booking.payment_method.is_(None),
-        )
-    )
-
-    active_breakdowns = await db.scalar(
-        select(func.count())
-        .select_from(Incident)
-        .where(Incident.status.in_(_ACTIVE_INCIDENTS))
-    )
+    ).one()
+    vehicles_out, pickups_due, returns_due, overdue, pending_approvals, (
+        active_breakdowns
+    ) = kpi_row
 
     monthly_revenue = None
     if has_permission(role, Permission.DASHBOARD_REVENUE):
@@ -155,16 +170,55 @@ async def dashboard(
             )
         )
 
-    fleet_status = {}
-    for name in ("Available", "Reserved", "Rented", "Maintenance"):
-        stmt = apply_availability_filters(
-            select(func.count()).select_from(Vehicle),
-            pickup_at=now,
-            block_until=now,
-            status=name,
-            available_only=False,
+    fleet_row = (
+        await db.execute(
+            select(
+                apply_availability_filters(
+                    select(func.count()).select_from(Vehicle),
+                    pickup_at=now,
+                    block_until=now,
+                    status="Available",
+                    available_only=False,
+                )
+                .scalar_subquery()
+                .label("available"),
+                apply_availability_filters(
+                    select(func.count()).select_from(Vehicle),
+                    pickup_at=now,
+                    block_until=now,
+                    status="Reserved",
+                    available_only=False,
+                )
+                .scalar_subquery()
+                .label("reserved"),
+                apply_availability_filters(
+                    select(func.count()).select_from(Vehicle),
+                    pickup_at=now,
+                    block_until=now,
+                    status="Rented",
+                    available_only=False,
+                )
+                .scalar_subquery()
+                .label("rented"),
+                apply_availability_filters(
+                    select(func.count()).select_from(Vehicle),
+                    pickup_at=now,
+                    block_until=now,
+                    status="Maintenance",
+                    available_only=False,
+                )
+                .scalar_subquery()
+                .label("maintenance"),
+            )
         )
-        fleet_status[name.lower()] = await db.scalar(stmt) or 0
+    ).one()
+    fleet_status = {
+        name: value or 0
+        for name, value in zip(
+            ("available", "reserved", "rented", "maintenance"),
+            fleet_row,
+        )
+    }
 
     pickup_rows = (
         await db.execute(

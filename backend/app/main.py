@@ -1,12 +1,15 @@
 # backend/app/main.py
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from app.core.config import get_settings
+from app.core.database import engine
 from app.core.errors import register_exception_handlers
 from app.core.middleware import RequestIDMiddleware
 from app.jobs.scheduler import shutdown_scheduler, start_scheduler
@@ -25,8 +28,19 @@ from app.routers.staff import router as staff_router
 from app.routers.system import router as system_router
 from app.routers.vehicles import router as vehicles_router
 
+logger = logging.getLogger("autohire.api")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Open the first pooled connection during startup so the first browser
+    # request does not pay the remote database's TLS/connect latency.
+    try:
+        async with engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
+    except Exception:
+        logger.warning("Database warm-up failed", exc_info=False)
+
     scheduler = start_scheduler()
     try:
         yield

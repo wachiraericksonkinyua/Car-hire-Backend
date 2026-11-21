@@ -995,3 +995,67 @@
 .vehicle-photo-grid figure { display: flex; flex-direction: column; gap: 0.35rem; margin: 0; }
 .vehicle-photo-grid img { border-radius: 10px; height: 80px; object-fit: cover; width: 100%; }
 .customer-vehicle-card__photo img { height: 100%; min-height: 150px; object-fit: cover; width: 100%; }
+
+/* Responsive card grids */
+.driver-card-grid,
+.staff-card-grid,
+.storage-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+.customer-vehicle-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+}
+
+@media (max-width: 1100px) {
+  .split-layout { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 760px) {
+  .driver-card-grid,
+  .staff-card-grid,
+  .storage-grid { grid-template-columns: 1fr; }
+  .driver-roster-heading { flex-direction: column; }
+  .driver-card__header { align-items: flex-start; }
+  .driver-card__rating { margin-left: 0; }
+
+  .fleet-table .table-scroll { overflow: visible; }
+  .fleet-table .data-table,
+  .fleet-table .data-table thead,
+  .fleet-table .data-table tbody,
+  .fleet-table .data-table tr,
+  .fleet-table .data-table td { display: block; width: 100%; }
+  .fleet-table .data-table thead {
+    clip: rect(0, 0, 0, 0);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    width: 1px;
+  }
+  .fleet-table .data-table tbody { display: grid; gap: 10px; }
+  .fleet-table .data-table tr {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+  }
+  .fleet-table .data-table td {
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    gap: 8px;
+    grid-template-columns: minmax(90px, 0.7fr) minmax(0, 1.3fr);
+    min-height: 36px;
+    overflow-wrap: anywhere;
+    padding: 7px 0;
+    text-align: right;
+  }
+  .fleet-table .data-table td::before {
+    color: var(--ink-muted);
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 600;
+    text-align: left;
+  }
+  .fleet-table .data-table td:last-child { border-bottom: 0; }
+  .fleet-table .inline-actions { justify-content: flex-end; }
+}

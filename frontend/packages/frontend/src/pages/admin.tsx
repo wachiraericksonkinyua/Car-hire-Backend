@@ -296,7 +296,7 @@ export function FleetPage() {
             </ul>
           </details>}
         </div>}
-        <div className="card-panel">
+        <div className="card-panel fleet-table">
           <DataTable
             columns={[
               { key: 'vehicle', header: 'Vehicle', render: (row) => <div className="fleet-vehicle-cell">{row.photos?.[0] && <img alt="" className="fleet-thumb" src={row.photos[0].url} />}<div><strong>{row.make} {row.model}</strong><div className="muted">{row.registration}</div></div></div> },
