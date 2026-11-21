@@ -1,7 +1,19 @@
-import type { ApiEnvelope } from './types'
+import type { ApiEnvelope, ApiErrorDetail } from './types'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 let accessToken: string | null = null
+
+function detailText(details: ApiErrorDetail[] | undefined): string {
+  if (!Array.isArray(details) || details.length === 0) return ''
+  return details
+    .map((detail) => {
+      const field = (detail.loc ?? [])
+        .filter((part) => part !== 'body' && part !== 'query')
+        .join('.')
+      return field ? `${field}: ${detail.msg ?? 'invalid value'}` : detail.msg ?? 'invalid value'
+    })
+    .join('; ')
+}
 
 export class ApiError extends Error {
   constructor(
@@ -9,6 +21,7 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code?: string,
     readonly retryAfterSeconds?: number,
+    readonly details?: ApiErrorDetail[],
   ) {
     super(message)
     this.name = 'ApiError'
@@ -69,11 +82,15 @@ async function request<T>(path: string, init: RequestInit = {}, canRefresh = tru
       setAccessToken(null)
       if (typeof window !== 'undefined') window.dispatchEvent(new Event('autohire:unauthorized'))
     }
+    const baseMessage = envelope.error?.message ?? 'The request could not be completed'
+    const details = envelope.error?.details
+    const extra = detailText(details)
     throw new ApiError(
-      envelope.error?.message ?? 'The request could not be completed',
+      extra ? `${baseMessage}: ${extra}` : baseMessage,
       response.status,
       envelope.error?.code,
       Number(response.headers.get('Retry-After')) || undefined,
+      details,
     )
   }
   return envelope.data

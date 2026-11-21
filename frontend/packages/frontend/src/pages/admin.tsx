@@ -323,7 +323,7 @@ export function FleetPage() {
         {canManage && <form className="card-panel stack stack--md" onSubmit={(event) => void addVehicle(event)}>
           <h2>Add vehicle</h2>
           <div className="filter-grid">
-            <Input label="Plate" onChange={(event) => setForm({ ...form, plate_number: event.target.value })} value={form.plate_number} />
+            <Input label="Plate" onChange={(event) => setForm({ ...form, plate_number: event.target.value })} placeholder="KDA 123A" required value={form.plate_number} />
             <Input label="Brand" onChange={(event) => setForm({ ...form, brand: event.target.value })} value={form.brand} />
             <Input label="Model" onChange={(event) => setForm({ ...form, model: event.target.value })} value={form.model} />
             <Input label="Year" onChange={(event) => setForm({ ...form, year: Number(event.target.value) })} type="number" value={form.year} />
@@ -337,6 +337,7 @@ export function FleetPage() {
             <Input label="Mileage cap (km)" onChange={(event) => setForm({ ...form, mileage_cap_km: Number(event.target.value) })} type="number" value={form.mileage_cap_km} />
             <Input label="Insurance expiry" onChange={(event) => setForm({ ...form, insurance_expiry: event.target.value })} type="date" value={form.insurance_expiry} />
           </div>
+          <p className="field__hint">Plate must look like <strong>KDA 123A</strong>: three letters, three digits, one letter.</p>
           <label className="button button--secondary button--sm">
             Add vehicle images
             <input accept="image/jpeg,image/png,image/webp" hidden multiple onChange={(event) => {

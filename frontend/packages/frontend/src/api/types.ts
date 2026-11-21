@@ -250,10 +250,16 @@ export interface Booking {
   accruedLateFeeKes?: number
 }
 
+export interface ApiErrorDetail {
+  loc?: (string | number)[]
+  msg?: string
+  type?: string
+}
+
 export interface ApiEnvelope<T> {
   success: boolean
   data?: T
-  error?: { code?: string; message: string }
+  error?: { code?: string; message: string; details?: ApiErrorDetail[] }
 }
 
 export interface AuthSession {
