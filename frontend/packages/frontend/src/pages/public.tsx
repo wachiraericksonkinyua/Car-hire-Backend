@@ -122,6 +122,7 @@ export function VehicleDetailsPage() {
   const [withChauffeur, setWithChauffeur] = useState(false)
   const [zone, setZone] = useState<'in_town' | 'upcountry'>('in_town')
   const [extras, setExtras] = useState<PublicExtra[]>([])
+  const [photoIndex, setPhotoIndex] = useState(0)
 
   const pickup = toUtc(from)
   const returnAt = toUtc(to)
@@ -139,6 +140,8 @@ export function VehicleDetailsPage() {
   if (vehicle.isLoading) return <section className="customer-page"><Skeleton rows={5} /></section>
   if (vehicle.isError || !vehicle.data) return <section className="customer-page"><ErrorState title="Vehicle not found" onRetry={() => void vehicle.refetch()} retryLabel="Retry" /></section>
   const car = vehicle.data
+  const photos = car.photos ?? []
+  const heroPhoto = photos[photoIndex] ?? photos[0]
 
   function toggleExtra(code: PublicExtra) {
     setExtras((current) => current.includes(code) ? current.filter((item) => item !== code) : [...current, code])
@@ -149,7 +152,19 @@ export function VehicleDetailsPage() {
       <Link className="customer-back" to={`/vehicles?from=${encodeURIComponent(pickup)}&to=${encodeURIComponent(returnAt)}`}>← Back to fleet</Link>
       <div className="customer-detail__grid">
         <div>
-          <div className="customer-detail__photo" aria-hidden="true">{car.brand.slice(0, 1)}</div>
+          {heroPhoto
+            ? <div className="customer-detail__photo"><img alt={`${car.brand} ${car.model}`} src={heroPhoto.url} /></div>
+            : <div className="customer-detail__photo" aria-hidden="true">{car.brand.slice(0, 1)}</div>}
+          {photos.length > 1 && <div className="customer-detail__thumbs">
+            {photos.map((photo, index) => <button
+              aria-label={`Show image ${index + 1}`}
+              aria-pressed={index === photoIndex}
+              className={index === photoIndex ? 'is-active' : ''}
+              key={photo.id}
+              onClick={() => setPhotoIndex(index)}
+              type="button"
+            ><img alt="" src={photo.url} /></button>)}
+          </div>}
           <h1>{car.brand} {car.model}</h1>
           <p className="customer-eyebrow">{car.year} · {car.category} · {car.plate_number}</p>
           <p><span className={`customer-status customer-status--${statusClass(car.status)}`}>{car.status}</span>{car.insurance_expired && <span className="customer-warning"> Insurance expired — cannot be booked</span>}</p>

@@ -1064,3 +1064,69 @@
 @media (max-width: 760px) {
   .home-vehicle-card__image img { min-height: 120px; }
 }
+
+/* Consistent vehicle cards: fixed media boxes and bottom-aligned actions */
+.home-vehicle-card,
+.customer-vehicle-card { display: flex; flex-direction: column; }
+.home-vehicle-card__image {
+  height: 190px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+.home-vehicle-card__image img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+.home-vehicle-card__link { margin-top: auto; }
+.customer-vehicle-card__photo {
+  aspect-ratio: 16 / 10;
+  height: 190px;
+  min-height: 0;
+  overflow: hidden;
+}
+.customer-vehicle-card__photo img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+.customer-vehicle-card__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+}
+.customer-vehicle-card__body > .button { margin-top: auto; }
+.customer-vehicle-card__heading { min-height: 48px; }
+.customer-detail__photo {
+  aspect-ratio: 16 / 9;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.customer-detail__photo img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+.customer-detail__thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.customer-detail__thumbs button {
+  background: none;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  height: 62px;
+  overflow: hidden;
+  padding: 0;
+  width: 92px;
+}
+.customer-detail__thumbs button.is-active { border-color: #2563eb; }
+.customer-detail__thumbs img { display: block; height: 100%; object-fit: cover; width: 100%; }
+@media (max-width: 760px) {
+  .home-vehicle-card__image { height: 130px; }
+  .customer-vehicle-card__photo { height: auto; }
+}
