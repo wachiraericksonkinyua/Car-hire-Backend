@@ -71,6 +71,12 @@ describe('home page booking form', () => {
     expect(query.get('return')).toBe('Westlands')
   })
 
+  it('renders vehicles returned by the query', () => {
+    renderHome([vehicle])
+    expect(screen.getByTestId(`vehicle-card-${vehicle.id}`)).toBeInTheDocument()
+    expect(screen.getByText('Toyota Prado TX')).toBeInTheDocument()
+  })
+
   it('shows an empty state instead of a broken featured grid when the API has no vehicles', () => {
     const { container } = renderHome([])
     expect(screen.getByText('No featured cars yet')).toBeInTheDocument()

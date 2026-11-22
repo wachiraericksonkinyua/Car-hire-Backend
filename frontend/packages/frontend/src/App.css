@@ -720,17 +720,23 @@
 .card__head h2, .card__head h3 { margin: 0; font: 700 17px/1.3 'Plus Jakarta Sans', system-ui, sans-serif; }
 
 /* ===== Home ===== */
-.home-page { padding-block: 0; }
+.home-page { display: grid; gap: clamp(32px, 5vw, 64px); padding-block: 18px 56px; }
 .home-section { width: min(100% - 64px, 1280px); margin: 0 auto; padding-block: 14px 0; }
 .home-section h2.home-section-title, .home-section-title { margin: 0 0 20px; color: var(--ink); font: 700 24px/1.2 'Plus Jakarta Sans', system-ui, sans-serif; }
 
-.home-hero { position: relative; padding: 58px 0; overflow: hidden; border-radius: 20px; background: var(--hero-gradient); }
+.home-hero {
+  position: relative; width: min(100% - 64px, 1280px); min-height: 520px; margin: 0 auto;
+  padding: clamp(32px, 5vw, 64px); display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.72fr);
+  align-items: center; gap: clamp(24px, 5vw, 72px);
+  overflow: hidden; border-radius: 20px; background: var(--hero-gradient);
+}
 .home-hero__copy, .home-hero__card { position: relative; z-index: 1; }
-.home-hero__copy { max-width: 700px; padding-bottom: 28px; }
+.home-hero__copy { max-width: 700px; }
 .home-hero__title { margin: 0; color: var(--ink); font: 800 clamp(36px, 4.2vw, 58px)/1.15 'Plus Jakarta Sans', system-ui, sans-serif; }
 .home-hero__support { max-width: 480px; margin-top: 14px; color: var(--ink-muted); font-size: 15px; line-height: 1.6; }
 .home-hero__card {
-  width: min(100%, 460px); justify-self: end;
+  width: 100%; min-width: 0; justify-self: stretch;
   display: grid; gap: 20px; padding: 20px 22px;
   border: 1px solid #fff4; border-radius: 18px;
   background: rgba(255, 255, 255, .97);
@@ -741,7 +747,7 @@
 .home-booking-card__title { margin: 0; color: var(--ink); font: 700 20px/1.25 'Plus Jakarta Sans', system-ui, sans-serif; }
 .home-booking-card__sub { margin-top: 4px; color: var(--ink-muted); font-size: 13px; }
 .home-booking-card__cta {
-  min-height: 44px; display: inline-flex; align-items: center; justify-content: space-between; gap: 10px;
+  min-height: 44px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: space-between; gap: 10px;
   border: 0; border-radius: 8px; color: #fff; background: var(--primary);
   font: 600 15px/1 'Plus Jakarta Sans', system-ui, sans-serif; cursor: pointer;
 }
@@ -758,7 +764,7 @@
 .home-stat-box { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-muted); font-size: 12px; font-weight: 600; }
 .home-stat-box__value { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font: 700 20px/1 'Plus Jakarta Sans', system-ui, sans-serif; }
 
-.home-stats { display: flex; flex-wrap: wrap; gap: 10px; }
+.home-stats { width: min(100% - 64px, 1280px); margin: 0 auto; display: flex; flex-wrap: wrap; gap: 10px; }
 .home-stat {
   display: grid; gap: 2px; min-width: 158px; padding: 11px 15px;
   border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
@@ -806,8 +812,10 @@
 .home-city__go { display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 14px; border: 0; border-radius: 8px; color: #fff; background: var(--primary); cursor: pointer; font: 600 13px/1 'Plus Jakarta Sans', system-ui, sans-serif; }
 
 /* ===== Vehicle cards ===== */
-.home-cars header, .home-cars h2, .home-cars a { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
-.home-cars h2 { margin: 0; }
+.home-cars { width: min(100% - 64px, 1280px); margin: 0 auto; }
+.home-cars > header { margin-bottom: 22px; display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }
+.home-cars > header h2 { max-width: 470px; margin: 0; color: var(--ink); font: 800 30px/1.15 'Plus Jakarta Sans', system-ui, sans-serif; }
+.home-cars > header a { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 14px; font-weight: 700; text-decoration: none; white-space: nowrap; }
 .home-vehicle-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .home-card { display: grid; padding: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; transition: box-shadow 160ms ease; }
 .home-card:hover { box-shadow: 0 9px 26px #0b0f1a0b; }
@@ -945,15 +953,22 @@
   .detail-gallery__main { aspect-ratio: 16 / 8; }
 }
 @media (max-width: 900px) {
-  .home-hero__card { width: 100%; }
-  .home-page { padding-top: 0; }
-  .home-section { padding-block: 18px 0; }
-  .home-car-grid, .cat-grid { grid-template-columns: 1fr; }
+  .home-hero { grid-template-columns: minmax(0, 1fr) minmax(300px, 0.95fr); padding: 36px; gap: 24px; }
+  .home-page { gap: 44px; padding-top: 0; }
+  .home-section { width: calc(100% - 40px); padding-block: 18px 0; }
+  .home-stats, .home-cars { width: calc(100% - 40px); }
+  .home-grid-3, .home-vehicle-grid, .cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .about-grid, .contact-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 700px) {
+  .home-hero { width: calc(100% - 24px); min-height: 0; padding: 26px 20px; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .home-section, .home-stats, .home-cars { width: calc(100% - 32px); }
+  .home-vehicle-grid, .home-grid-3 { grid-template-columns: minmax(0, 1fr); }
+  .home-cars > header { align-items: flex-start; }
+  .home-cars > header h2 { font-size: 24px; }
   .home-hero__title { font-size: 33px; }
-  .home-hero__card { justify-self: stretch; }
+  .home-hero__card { justify-self: stretch; padding: 18px 16px; }
+  .home-city { width: calc(100% - 32px); }
   .filter-bar { padding: 8px 10px; }
   .filter-bar input, .filter-bar select { min-height: 32px; font-size: 12px; }
   .cat-card__media { aspect-ratio: 16 / 10; }

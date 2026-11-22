@@ -27,7 +27,7 @@ export function PublicLayout() {
             <span className="brand__mark"><CarFront aria-hidden="true" size={22} /></span>
             <span className="brand__name">AutoHire <b>KE</b></span>
           </Link>
-          <nav aria-label={t('nav.primary')} className={menuOpen ? 'public-nav' : 'public-nav'}>
+          <nav aria-label={t('nav.primary')} className={menuOpen ? 'public-nav is-open' : 'public-nav'}>
             {publicLinks.map(({ to, label, end }) => (
               <NavLink end={end} key={to} onClick={() => setMenuOpen(false)} to={to}>
                 {t(label)}
