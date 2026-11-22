@@ -17,7 +17,9 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.models.booking import Booking, BookingStatus
+from app.models.driver import DriverProfile
 from app.models.payment import Payment
+from app.models.user import User
 from app.models.vehicle import Vehicle, VehicleStatus
 from app.models.vehicle_photo import VehiclePhoto
 from app.schemas.booking import (
@@ -68,6 +70,11 @@ from app.utils.time import utc_now
 
 router = APIRouter(prefix="/public", tags=["public"])
 
+_PROFILE_IMAGE_HEADERS = {
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+}
+
 
 def _photo_list_options():
     """Load photo metadata only, never the image bytes, for list responses."""
@@ -77,6 +84,58 @@ def _photo_list_options():
         VehiclePhoto.caption,
         VehiclePhoto.sort_order,
         VehiclePhoto.created_at,
+    )
+
+
+@router.get("/profile-photos/users/{user_id}")
+async def public_user_profile_photo(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    result = await db.execute(
+        select(User.avatar_data, User.avatar_content_type).where(
+            User.id == user_id
+        )
+    )
+    image = result.one_or_none()
+    if (
+        image is None
+        or image.avatar_data is None
+        or image.avatar_content_type is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Photo not found"
+        )
+    return Response(
+        content=image.avatar_data,
+        media_type=image.avatar_content_type,
+        headers=_PROFILE_IMAGE_HEADERS,
+    )
+
+
+@router.get("/profile-photos/drivers/{driver_id}")
+async def public_driver_profile_photo(
+    driver_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    result = await db.execute(
+        select(DriverProfile.photo_data, DriverProfile.photo_content_type).where(
+            DriverProfile.id == driver_id
+        )
+    )
+    image = result.one_or_none()
+    if (
+        image is None
+        or image.photo_data is None
+        or image.photo_content_type is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Photo not found"
+        )
+    return Response(
+        content=image.photo_data,
+        media_type=image.photo_content_type,
+        headers=_PROFILE_IMAGE_HEADERS,
     )
 
 

@@ -34,7 +34,7 @@ from app.services.auth_service import (
     issue_refresh_token,
     revoke_refresh_token,
 )
-from app.services.image_service import delete_image_file, store_image
+from app.services.image_service import delete_image_file, read_image
 from app.utils.time import as_utc, utc_now
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -197,7 +197,6 @@ async def read_current_user(
 
 @router.post("/me/avatar", response_model=SuccessEnvelope[UserResponse])
 async def upload_current_user_avatar(
-    request: Request,
     file: UploadFile = File(...),
     payload: dict = Depends(get_current_user_payload),
     db: AsyncSession = Depends(get_db),
@@ -207,9 +206,11 @@ async def upload_current_user_avatar(
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    url = await store_image(file, request=request, folder="avatars", owner_id=user.id)
+    content, content_type = await read_image(file)
     previous = user.avatar_url
-    user.avatar_url = url
+    user.avatar_data = content
+    user.avatar_content_type = content_type
+    user.avatar_url = f"/public/profile-photos/users/{user.id}"
     await db.flush()
     await db.refresh(user)
     delete_image_file(previous)

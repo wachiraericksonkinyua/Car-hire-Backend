@@ -400,11 +400,18 @@ async def test_driver_photo_and_delete_profile(db_session, api_client):
         files={"file": ("driver.png", b"\x89PNG\r\n\x1a\n", "image/png")},
     )
     assert uploaded.status_code == 200
-    assert "/uploads/drivers/" in uploaded.json()["data"]["photo_url"]
+    photo_url = uploaded.json()["data"]["photo_url"]
+    assert photo_url == f"/public/profile-photos/drivers/{P1}"
+    photo = await api_client.get(f"/api/v1{photo_url}")
+    assert photo.status_code == 200
+    assert photo.headers["content-type"] == "image/png"
+    assert photo.content == b"\x89PNG\r\n\x1a\n"
 
     removed = await api_client.delete(f"/api/v1/drivers/{P1}/photo")
     assert removed.status_code == 200
     assert removed.json()["data"]["photo_url"] is None
+    missing_photo = await api_client.get(f"/api/v1{photo_url}")
+    assert missing_photo.status_code == 404
 
     # A driver without booking history can be deleted.
     deleted = await api_client.delete(f"/api/v1/drivers/{P1}")

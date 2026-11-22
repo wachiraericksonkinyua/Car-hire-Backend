@@ -1,30 +1,19 @@
 """Small helper for validating and storing uploaded profile images."""
 
 from pathlib import Path
-from uuid import UUID, uuid4
 
-from fastapi import HTTPException, Request, UploadFile, status
+from fastapi import HTTPException, UploadFile, status
 
 UPLOAD_ROOT = Path(__file__).resolve().parents[2] / "uploads"
 
-_ALLOWED = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-}
+_ALLOWED = {"image/jpeg", "image/png", "image/webp"}
 MAX_BYTES = 5 * 1024 * 1024
 
 
-async def store_image(
-    file: UploadFile,
-    *,
-    request: Request,
-    folder: str,
-    owner_id: UUID,
-) -> str:
-    """Validate an image upload, save it, and return its public URL."""
-    extension = _ALLOWED.get(file.content_type or "")
-    if extension is None:
+async def read_image(file: UploadFile) -> tuple[bytes, str]:
+    """Validate and read an uploaded profile image for database storage."""
+    content_type = file.content_type or ""
+    if content_type not in _ALLOWED:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="Only JPG, PNG or WebP images are allowed",
@@ -42,14 +31,7 @@ async def store_image(
             detail="The uploaded image is empty",
         )
 
-    target_dir = UPLOAD_ROOT / folder / str(owner_id)
-    target_dir.mkdir(parents=True, exist_ok=True)
-    filename = f"{uuid4().hex}.{extension}"
-    (target_dir / filename).write_bytes(content)
-
-    return (
-        f"{request.base_url}uploads/{folder}/{owner_id}/{filename}"
-    )
+    return content, content_type
 
 
 def delete_image_file(url: str | None) -> None:

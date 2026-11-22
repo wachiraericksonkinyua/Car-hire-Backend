@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { apiClient, getAccessToken, setAccessToken } from './client'
+import { apiClient, apiUrl, getAccessToken, setAccessToken } from './client'
 
 const envelope = (data: unknown, status = 200) =>
   new Response(JSON.stringify({ success: status < 400, data, error: null }), {
@@ -11,6 +11,15 @@ describe('apiClient', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     setAccessToken(null)
+  })
+
+  it('resolves profile-image API paths and preserves existing absolute URLs', () => {
+    expect(apiUrl('/public/profile-photos/users/123')).toBe(
+      '/api/v1/public/profile-photos/users/123',
+    )
+    expect(apiUrl('https://api.example.com/uploads/avatar.png')).toBe(
+      'https://api.example.com/uploads/avatar.png',
+    )
   })
 
   it('attaches the in-memory token and retries a 401 once after refresh', async () => {

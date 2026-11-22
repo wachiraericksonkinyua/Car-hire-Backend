@@ -8,7 +8,16 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import Boolean, DateTime, Enum, Integer, String, Uuid, func
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum,
+    Integer,
+    LargeBinary,
+    String,
+    Uuid,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -36,8 +45,14 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
-    # Optional profile image served from /uploads.
+    # Optional profile image stored in PostgreSQL for deploy-safe persistence.
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    avatar_data: Mapped[bytes | None] = mapped_column(
+        LargeBinary, nullable=True, deferred=True
+    )
+    avatar_content_type: Mapped[str | None] = mapped_column(
+        String(60), nullable=True, deferred=True
+    )
 
     # We store only the hash, never the plain-text password.
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)

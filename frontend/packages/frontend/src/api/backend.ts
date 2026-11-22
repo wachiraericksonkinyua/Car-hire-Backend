@@ -11,6 +11,7 @@ import type {
   QuoteResponse,
   Vehicle,
 } from './types'
+import { apiUrl } from './client'
 import { publicVehiclePhotoUrl } from './public'
 
 export interface BackendVehicle {
@@ -268,7 +269,7 @@ export function mapDriver(driver: BackendDriver): Driver {
     licenceExpiresAt: driver.licence_expiry,
     psvExpiresAt: driver.psv_expiry,
     rating: driver.rating ?? 0,
-    photoUrl: driver.photo_url ?? undefined,
+    photoUrl: driver.photo_url ? apiUrl(driver.photo_url) : undefined,
   }
 }
 

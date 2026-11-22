@@ -191,13 +191,20 @@ async def test_staff_photo_upload_and_remove(db_session, api_client):
         files={"file": ("avatar.png", b"\x89PNG\r\n\x1a\n", "image/png")},
     )
     assert uploaded.status_code == 200
-    assert "/uploads/staff/" in uploaded.json()["data"]["avatar_url"]
+    photo_url = uploaded.json()["data"]["avatar_url"]
+    assert photo_url == f"/public/profile-photos/users/{AGENT_ID}"
+    photo = await api_client.get(f"/api/v1{photo_url}")
+    assert photo.status_code == 200
+    assert photo.headers["content-type"] == "image/png"
+    assert photo.content == b"\x89PNG\r\n\x1a\n"
 
     removed = await api_client.delete(
         f"/api/v1/staff/{AGENT_ID}/photo"
     )
     assert removed.status_code == 200
     assert removed.json()["data"]["avatar_url"] is None
+    missing_photo = await api_client.get(f"/api/v1{photo_url}")
+    assert missing_photo.status_code == 404
 
     _login(api_client, MANAGER_ID, "manager")
     forbidden = await api_client.post(

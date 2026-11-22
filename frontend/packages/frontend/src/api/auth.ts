@@ -1,4 +1,4 @@
-import { apiClient, setAccessToken } from './client'
+import { apiClient, apiUrl, setAccessToken } from './client'
 import type { User } from './types'
 
 interface BackendUser {
@@ -18,7 +18,7 @@ function mapUser(user: BackendUser): User {
     phone: '',
     role: user.role,
     active: user.is_active,
-    avatarUrl: user.avatar_url ?? undefined,
+    avatarUrl: user.avatar_url ? apiUrl(user.avatar_url) : undefined,
   }
 }
 

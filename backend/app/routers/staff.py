@@ -20,7 +20,7 @@ from app.core.permissions import Permission, require_permission
 from app.core.security import hash_password
 from app.models.user import User, UserRole
 from app.schemas.common import SuccessEnvelope
-from app.services.image_service import delete_image_file, store_image
+from app.services.image_service import delete_image_file, read_image
 from app.schemas.staff import (
     StaffCreate,
     StaffResponse,
@@ -273,11 +273,11 @@ async def upload_staff_photo(
             detail="A manager cannot modify an owner",
         )
 
-    url = await store_image(
-        file, request=request, folder="staff", owner_id=target.id
-    )
+    content, content_type = await read_image(file)
     previous = target.avatar_url
-    target.avatar_url = url
+    target.avatar_data = content
+    target.avatar_content_type = content_type
+    target.avatar_url = f"/public/profile-photos/users/{target.id}"
 
     await record_audit(
         db,
@@ -314,6 +314,8 @@ async def remove_staff_photo(
 
     previous = target.avatar_url
     target.avatar_url = None
+    target.avatar_data = None
+    target.avatar_content_type = None
 
     await record_audit(
         db,

@@ -31,7 +31,7 @@ from app.schemas.driver import (
     TripStatusUpdate,
 )
 from app.services.audit_service import record_audit
-from app.services.image_service import delete_image_file, store_image
+from app.services.image_service import delete_image_file, read_image
 from app.services.driver_service import (
     DRIVER_BLOCKING_STATUSES,
     available_drivers,
@@ -364,11 +364,11 @@ async def upload_driver_photo(
             detail="Driver account not found",
         )
 
-    url = await store_image(
-        file, request=request, folder="drivers", owner_id=profile.id
-    )
+    content, content_type = await read_image(file)
     previous = profile.photo_url
-    profile.photo_url = url
+    profile.photo_data = content
+    profile.photo_content_type = content_type
+    profile.photo_url = f"/public/profile-photos/drivers/{profile.id}"
 
     await record_audit(
         db,
@@ -409,6 +409,8 @@ async def remove_driver_photo(
 
     previous = profile.photo_url
     profile.photo_url = None
+    profile.photo_data = None
+    profile.photo_content_type = None
 
     await record_audit(
         db,

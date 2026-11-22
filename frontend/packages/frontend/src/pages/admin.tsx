@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/AuthContext'
 import { canApproveBooking } from '../hooks/useCan'
 import { useTranslation } from '../i18n'
 import type { AuditEntry, Booking, PaymentMethod, StaffMember, User, UserRole, Vehicle } from '../api/types'
-import { apiClient } from '../api/client'
+import { apiClient, apiUrl } from '../api/client'
 import { publicVehiclePhotoUrl } from '../api/public'
 import { useBookingList, useDeleteVehiclePhoto, useStorage, useUpdateVehiclePhotoCaption, useUploadVehiclePhoto, useVehicles } from '../api/queries'
 import { formatKes } from '../lib'
@@ -316,7 +316,7 @@ export function FleetPage() {
             </div>
             <div className="storage-meter">
               <div className="storage-meter__label"><span>Uploaded files</span><strong>{formatBytes(storageQuery.data.uploads.used_bytes)}</strong></div>
-              <small>Inspection, staff and driver photos on disk</small>
+              <small>Inspection photos on host disk; new staff and driver photos are stored in PostgreSQL</small>
             </div>
           </div>
           {storageQuery.data.tables.length > 0 && <details>
@@ -334,7 +334,7 @@ export function FleetPage() {
               { key: 'category', header: 'Category', render: (row) => row.category ?? '—' },
               { key: 'seats', header: 'Seats', render: (row) => row.seats },
               { key: 'rate', header: 'Rate/day', render: (row) => formatKes(row.ratePerDay) },
-              { key: 'status', header: 'Status', render: (row) => <span className={`status-pill status-pill--${row.status}`}>{row.status}</span> },
+              { key: 'status', header: 'Status', render: (row) => <span className={`status-pill status-pill--${row.status.toLowerCase().replace(/\s+/g, '-')}`}>{row.status}</span> },
               { key: 'action', header: 'Actions', render: (row) => canManage ? (
                 <div className="inline-actions">
                   <Button size="sm" variant="secondary" onClick={() => openEdit(row)}>Edit</Button>
@@ -508,7 +508,7 @@ function mapUserToFrontend(user: BackendUser): User {
     phone: '',
     role: user.role,
     active: user.is_active,
-    avatarUrl: user.avatar_url ?? undefined,
+    avatarUrl: user.avatar_url ? apiUrl(user.avatar_url) : undefined,
   }
 }
 
@@ -695,7 +695,7 @@ export function StaffPage() {
         branch: 'Nairobi HQ',
         active: row.is_active,
         lastLogin: row.last_login_at ?? 'Never',
-        avatarUrl: row.avatar_url ?? undefined,
+        avatarUrl: row.avatar_url ? apiUrl(row.avatar_url) : undefined,
       }))
     },
   })
@@ -801,7 +801,7 @@ export function StaffPage() {
       await refreshStaff()
       // If the current user's photo was updated, refresh the navbar avatar.
       if (user && user.id === result.id && result.avatar_url) {
-        updateUser({ ...user, avatarUrl: result.avatar_url })
+        updateUser({ ...user, avatarUrl: apiUrl(result.avatar_url) })
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not upload the profile image.')

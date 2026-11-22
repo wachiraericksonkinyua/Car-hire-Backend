@@ -4,7 +4,17 @@ import uuid
 from datetime import date, datetime
 from enum import StrEnum
 
-from sqlalchemy import Date, DateTime, Enum, Float, ForeignKey, String, Uuid, func
+from sqlalchemy import (
+    Date,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    LargeBinary,
+    String,
+    Uuid,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -47,8 +57,14 @@ class DriverProfile(Base):
     languages: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     rating: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    # Optional driver photo served from /uploads.
+    # Optional driver photo stored in PostgreSQL for deploy-safe persistence.
     photo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    photo_data: Mapped[bytes | None] = mapped_column(
+        LargeBinary, nullable=True, deferred=True
+    )
+    photo_content_type: Mapped[str | None] = mapped_column(
+        String(60), nullable=True, deferred=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
