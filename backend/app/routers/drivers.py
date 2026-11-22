@@ -376,7 +376,7 @@ async def upload_driver_photo(
         action="driver.photo-update",
         entity="driver",
         entity_id=str(profile.id),
-        after={"photo_url": url},
+        after={"photo_url": profile.photo_url},
         request_id=getattr(request.state, "request_id", None),
     )
     await db.flush()

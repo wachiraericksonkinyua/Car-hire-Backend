@@ -285,7 +285,7 @@ async def upload_staff_photo(
         action="staff.photo-update",
         entity="user",
         entity_id=str(target.id),
-        after={"avatar_url": url},
+        after={"avatar_url": target.avatar_url},
         request_id=getattr(request.state, "request_id", None),
     )
     await db.flush()
