@@ -267,15 +267,20 @@ Never edit an applied migration; add a new revision.
 
 ```bash
 cd backend
-OWNER_DEFAULT_PASSWORD='a-strong-password' \
-  ./.venv/bin/python -m scripts.seed_owner
+read -rs -p "Initial owner password: " OWNER_DEFAULT_PASSWORD
+printf '\n'
+export OWNER_DEFAULT_PASSWORD
+./.venv/bin/python -m scripts.seed_owner
+unset OWNER_DEFAULT_PASSWORD
 ```
 
-Creates `owner@autohire.ke` with role `owner`. The script is idempotent.
-`OWNER_DEFAULT_PASSWORD` is read at runtime, not from `.env`.
+Creates `owner@autohire.ke` with role `owner`. The password must be at least
+12 characters; there is no built-in default. The script is idempotent and
+does not change an existing owner's password. `OWNER_DEFAULT_PASSWORD` is
+read at runtime, not from `.env`.
 
-> On this machine an owner has already been seeded. Use the password provided
-> separately in chat; there is no password-change endpoint yet.
+Never put an account password in this setup guide, source control, or shared
+chat. The account password is managed privately by the owner.
 
 ---
 
@@ -415,8 +420,8 @@ cd backend && ./.venv/bin/alembic check
 # Tests
 cd backend && ./.venv/bin/pytest -q
 
-# Seed owner
-cd backend && OWNER_DEFAULT_PASSWORD='...' ./.venv/bin/python -m scripts.seed_owner
+# Seed owner (see section 6 to set the required password without echoing it)
+cd backend && ./.venv/bin/python -m scripts.seed_owner
 
 # API
 cd backend && ./.venv/bin/uvicorn app.main:app --reload --port 8000

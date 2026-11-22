@@ -1,12 +1,7 @@
 """Create the first owner account.
 
-Run from `backend` with:
-
-    python -m scripts.seed_owner
-
-Override the starting password with:
-
-    OWNER_DEFAULT_PASSWORD='something-strong' python -m scripts.seed_owner
+Run from `backend` after setting OWNER_DEFAULT_PASSWORD using a secure method.
+The secret is required; this script never falls back to a built-in password.
 """
 
 import asyncio
@@ -21,8 +16,14 @@ from app.models.user import User, UserRole
 OWNER_EMAIL = "owner@autohire.ke"
 
 
-def _default_password() -> str:
-    return os.getenv("OWNER_DEFAULT_PASSWORD", "ChangeMe-2026!")
+def _initial_password() -> str:
+    password = os.getenv("OWNER_DEFAULT_PASSWORD", "")
+    if not password.strip() or len(password) < 12:
+        raise RuntimeError(
+            "Set OWNER_DEFAULT_PASSWORD to a secret at least 12 characters "
+            "long before creating the owner account."
+        )
+    return password
 
 
 async def seed_owner() -> None:
@@ -39,7 +40,7 @@ async def seed_owner() -> None:
         owner = User(
             email=OWNER_EMAIL,
             full_name="AutoHire Owner",
-            password_hash=hash_password(_default_password()),
+            password_hash=hash_password(_initial_password()),
             role=UserRole.OWNER,
             is_active=True,
         )
@@ -48,7 +49,7 @@ async def seed_owner() -> None:
         await db.commit()
 
         print(f"Created owner account: {OWNER_EMAIL}")
-        print("Change the password after your first login!")
+        print("Keep the initial password in a password manager.")
 
 
 if __name__ == "__main__":

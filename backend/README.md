@@ -98,7 +98,13 @@ empty tables.
 ## Seed the first owner
 
 ```bash
-OWNER_DEFAULT_PASSWORD='a-strong-password' python -m scripts.seed_owner
+read -rs -p "Initial owner password: " OWNER_DEFAULT_PASSWORD
+printf '\n'
+export OWNER_DEFAULT_PASSWORD
+python -m scripts.seed_owner
+unset OWNER_DEFAULT_PASSWORD
 ```
 
-This creates `owner@autohire.ke` with role `owner`. It is idempotent.
+This creates `owner@autohire.ke` with role `owner`. The password must be at
+least 12 characters; there is no built-in default. The script is idempotent
+and does not change an existing owner's password.
