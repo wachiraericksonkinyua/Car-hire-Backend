@@ -10,6 +10,7 @@ import {
   fetchPublicVehicles,
   lookupPublicBooking,
   pollPublicPayment,
+  publicVehiclePhotoUrl,
   startPublicStk,
   type PublicExtra,
 } from '../api/public'
@@ -42,14 +43,14 @@ function StatusPill({ status }: { status: string }) {
   return <span className={`cat-status cat-status--${statusClass(status)}`}><span className="cat-status__dot" />{formatStatus(status)}</span>
 }
 
-function VehicleCard({ vehicle, from, to }: { vehicle: { id: string; brand: string; model: string; year: number; category: string; seats: number; transmission: string; daily_rate_kes: number; status: string; plate_number: string; photos?: { url: string }[] }, from: string, to: string }) {
+function VehicleCard({ vehicle, from, to }: { vehicle: { id: string; brand: string; model: string; year: number; category: string; seats: number; transmission: string; daily_rate_kes: number; status: string; plate_number: string; photos?: { id: string; url: string }[] }, from: string, to: string }) {
   const photos = vehicle.photos?.slice(0, 3) ?? []
   return (
     <article className="cat-card" data-testid={`vehicle-card-${vehicle.id}`}>
       <a className="cat-card__link" href={`/vehicles/${vehicle.id}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}>
         <figure className={`cat-card__media photo-grid ${photos.length === 0 ? 'photo-grid--empty' : photos.length === 1 ? 'photo-grid--single' : photos.length === 2 ? 'photo-grid--double' : ''}`}>
           {photos.length > 0
-            ? photos.map((photo, index) => <img alt={`${vehicle.brand} ${vehicle.model} photo ${index + 1}`} className="cat-card__photo" key={`${photo.url}-${index}`} src={photo.url} />)
+            ? photos.map((photo, index) => <img alt={`${vehicle.brand} ${vehicle.model} photo ${index + 1}`} className="cat-card__photo" key={photo.id} src={publicVehiclePhotoUrl(vehicle.id, photo.id)} />)
             : <div className="cat-card__placeholder"><span><PlaceholderIcon /></span></div>}
           <figcaption className="sr-only">{vehicle.brand} {vehicle.model} photos</figcaption>
         </figure>
@@ -139,15 +140,15 @@ export function VehiclesPage() {
   )
 }
 
-function PhotoCarousel({ photos }: { photos: { id: string; url: string }[] }) {
+function PhotoCarousel({ vehicleId, photos }: { vehicleId: string; photos: { id: string; url: string }[] }) {
   const [hero, setHero] = useState(0)
   return (
     <div className="detail-gallery" role="group" aria-label="Vehicle photos">
-      <img alt="Vehicle" className="detail-gallery__main" src={photos[hero]?.url} />
+      <img alt="Vehicle" className="detail-gallery__main" src={photos[hero] ? publicVehiclePhotoUrl(vehicleId, photos[hero].id) : undefined} />
       <div className="detail-gallery__thumbs">
         {photos.map((photo, index) => (
           <button className={`detail-thumb ${index === hero ? 'is-active' : ''}`} key={photo.id} onClick={() => setHero(index)} type="button">
-            <img alt={`Photo ${index + 1}`} src={photo.url} />
+            <img alt={`Photo ${index + 1}`} src={publicVehiclePhotoUrl(vehicleId, photo.id)} />
           </button>
         ))}
         {photos.length === 1 && <span className="detail-gallery__count">1 photo</span>}
@@ -185,7 +186,7 @@ export function VehicleDetailsPage() {
       <Link className="back-link" to={`/vehicles?from=${encodeURIComponent(pickup)}&to=${encodeURIComponent(returnAt)}`}>← Back to fleet</Link>
       <div className="detail-layout">
         <div className="detail-left">
-          {photos.length > 0 && <PhotoCarousel photos={photos} />}
+          {photos.length > 0 && <PhotoCarousel photos={photos} vehicleId={car.id} />}
           <div className="detail-summary">
             <p className="eyebrow">{car.category}</p>
             <h1 className="detail-title">{car.brand} {car.model}</h1>

@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, CalendarDays, CarFront, CheckCircle2, DollarSign, MapPin, Star, Wallet } from 'lucide-react'
 import { useVehicles } from '../../api/queries'
+import { publicVehiclePhotoUrl } from '../../api/public'
 import type { Vehicle } from '../../api/types'
 import { EmptyState, ErrorState, Input, Select, Skeleton } from '../../components/ui'
 import { formatKes, toUtc } from '../../lib'
@@ -46,7 +47,7 @@ function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
     <article className="home-card group" data-testid={`vehicle-card-${vehicle.id}`}>
       <div className={`home-card-media photo-grid ${photos.length === 0 ? 'photo-grid--empty' : photos.length === 1 ? 'photo-grid--single' : photos.length === 2 ? 'photo-grid--double' : ''}`}>
         {photos.length > 0
-          ? photos.map((photo, index) => <img alt={`${vehicle.make} ${vehicle.model} photo ${index + 1}`} className="home-card-photo" key={photo.id} src={photo.url} />)
+          ? photos.map((photo, index) => <img alt={`${vehicle.make} ${vehicle.model} photo ${index + 1}`} className="home-card-photo" key={photo.id} src={publicVehiclePhotoUrl(vehicle.id, photo.id)} />)
           : <div className="home-card-photo is-placeholder" />}
         <div className="home-card-badges">
           <span className={`badge badge--${vehicle.status}`}><span />{vehicle.status}</span>

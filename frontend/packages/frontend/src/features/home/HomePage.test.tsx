@@ -77,14 +77,16 @@ describe('home page booking form', () => {
     expect(screen.getByText('Toyota Prado TX')).toBeInTheDocument()
   })
 
-  it('shows up to three vehicle photos in the featured card grid', () => {
+  it('shows up to three vehicle photos using the configured API URL', () => {
     renderHome([{ ...vehicle, photos: [
-      { id: 'photo-1', url: '/one.jpg' },
+      { id: 'photo-1', url: 'http://localhost:8000/api/v1/public/vehicles/car-01/photos/photo-1' },
       { id: 'photo-2', url: '/two.jpg' },
       { id: 'photo-3', url: '/three.jpg' },
       { id: 'photo-4', url: '/four.jpg' },
     ] }])
     expect(screen.getAllByRole('img', { name: /Toyota Prado TX photo/ })).toHaveLength(3)
+    expect(screen.getByRole('img', { name: 'Toyota Prado TX photo 1' }).getAttribute('src'))
+      .toBe('/api/v1/public/vehicles/car-01/photos/photo-1')
   })
 
   it('shows an empty state instead of a broken featured grid when the API has no vehicles', () => {

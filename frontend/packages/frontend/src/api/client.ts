@@ -3,6 +3,11 @@ import type { ApiEnvelope, ApiErrorDetail } from './types'
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 let accessToken: string | null = null
 
+export function apiUrl(path: string): string {
+  const baseUrl = API_BASE_URL.replace(/\/+$/, '')
+  return `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`
+}
+
 function detailText(details: ApiErrorDetail[] | undefined): string {
   if (!Array.isArray(details) || details.length === 0) return ''
   return details

@@ -11,6 +11,7 @@ import type {
   QuoteResponse,
   Vehicle,
 } from './types'
+import { publicVehiclePhotoUrl } from './public'
 
 export interface BackendVehicle {
   id: string
@@ -183,7 +184,11 @@ export function mapVehicle(vehicle: BackendVehicle): Vehicle {
     mileageCapKm: vehicle.mileage_cap_km,
     insuranceExpiry: vehicle.insurance_expiry,
     status: vehicle.status === 'Maintenance' ? 'maintenance' : vehicle.status === 'Available' ? 'available' : 'booked',
-    photos: (vehicle.photos ?? []).map((photo) => ({ id: photo.id, url: photo.url, caption: photo.caption ?? undefined })),
+    photos: (vehicle.photos ?? []).map((photo) => ({
+      id: photo.id,
+      url: publicVehiclePhotoUrl(vehicle.id, photo.id),
+      caption: photo.caption ?? undefined,
+    })),
   }
 }
 

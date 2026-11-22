@@ -1,4 +1,8 @@
-import { apiClient } from './client'
+import { apiClient, apiUrl } from './client'
+
+export function publicVehiclePhotoUrl(vehicleId: string, photoId: string): string {
+  return apiUrl(`/public/vehicles/${encodeURIComponent(vehicleId)}/photos/${encodeURIComponent(photoId)}`)
+}
 
 export interface PublicVehicle {
   id: string

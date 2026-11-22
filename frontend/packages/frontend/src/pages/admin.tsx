@@ -6,6 +6,7 @@ import { canApproveBooking } from '../hooks/useCan'
 import { useTranslation } from '../i18n'
 import type { AuditEntry, Booking, PaymentMethod, StaffMember, User, UserRole, Vehicle } from '../api/types'
 import { apiClient } from '../api/client'
+import { publicVehiclePhotoUrl } from '../api/public'
 import { useBookingList, useDeleteVehiclePhoto, useStorage, useUpdateVehiclePhotoCaption, useUploadVehiclePhoto, useVehicles } from '../api/queries'
 import { formatKes } from '../lib'
 import { PagePlaceholder } from './PagePlaceholder'
@@ -328,7 +329,7 @@ export function FleetPage() {
         <div className="card-panel fleet-table">
           <DataTable
             columns={[
-              { key: 'vehicle', header: 'Vehicle', render: (row) => <div className="fleet-vehicle-cell">{row.photos?.[0] && <img alt="" className="fleet-thumb" src={row.photos[0].url} />}<div><strong>{row.make} {row.model}</strong><div className="muted">{row.registration}</div></div></div> },
+              { key: 'vehicle', header: 'Vehicle', render: (row) => <div className="fleet-vehicle-cell">{row.photos?.[0] && <img alt="" className="fleet-thumb" src={publicVehiclePhotoUrl(row.id, row.photos[0].id)} />}<div><strong>{row.make} {row.model}</strong><div className="muted">{row.registration}</div></div></div> },
               { key: 'year', header: 'Year', render: (row) => row.year },
               { key: 'category', header: 'Category', render: (row) => row.category ?? '—' },
               { key: 'seats', header: 'Seats', render: (row) => row.seats },
@@ -403,7 +404,7 @@ export function FleetPage() {
             <div className="section-heading"><h3>Vehicle images</h3><span className="muted">Stored in PostgreSQL</span></div>
             {(editing.photos ?? []).length > 0
               ? <div className="vehicle-photo-grid">{(editing.photos ?? []).map((photo) => <figure key={photo.id}>
-                <img alt={photo.caption ?? 'Vehicle'} src={photo.url} />
+                <img alt={photo.caption ?? 'Vehicle'} src={publicVehiclePhotoUrl(editing.id, photo.id)} />
                 <Input defaultValue={photo.caption ?? ''} label="Caption" onBlur={(event) => void saveCaption(photo.id, event.target.value)} placeholder="Interior, rear, bumper…" />
                 <Button onClick={() => void deleteEditingImage(photo.id)} size="sm" variant="ghost">Remove</Button>
               </figure>)}</div>
