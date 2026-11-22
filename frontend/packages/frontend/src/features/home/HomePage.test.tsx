@@ -77,6 +77,16 @@ describe('home page booking form', () => {
     expect(screen.getByText('Toyota Prado TX')).toBeInTheDocument()
   })
 
+  it('shows up to three vehicle photos in the featured card grid', () => {
+    renderHome([{ ...vehicle, photos: [
+      { id: 'photo-1', url: '/one.jpg' },
+      { id: 'photo-2', url: '/two.jpg' },
+      { id: 'photo-3', url: '/three.jpg' },
+      { id: 'photo-4', url: '/four.jpg' },
+    ] }])
+    expect(screen.getAllByRole('img', { name: /Toyota Prado TX photo/ })).toHaveLength(3)
+  })
+
   it('shows an empty state instead of a broken featured grid when the API has no vehicles', () => {
     const { container } = renderHome([])
     expect(screen.getByText('No featured cars yet')).toBeInTheDocument()

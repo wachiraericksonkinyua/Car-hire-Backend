@@ -41,12 +41,12 @@ const features: Feature[] = [
 ]
 
 function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
-  const photo = vehicle.photos?.[0]
+  const photos = vehicle.photos?.slice(0, 3) ?? []
   return (
     <article className="home-card group" data-testid={`vehicle-card-${vehicle.id}`}>
-      <div className="home-card-media">
-        {photo
-          ? <img alt={`${vehicle.make} ${vehicle.model}`} className="home-card-photo" src={photo.url} />
+      <div className={`home-card-media photo-grid ${photos.length === 0 ? 'photo-grid--empty' : photos.length === 1 ? 'photo-grid--single' : photos.length === 2 ? 'photo-grid--double' : ''}`}>
+        {photos.length > 0
+          ? photos.map((photo, index) => <img alt={`${vehicle.make} ${vehicle.model} photo ${index + 1}`} className="home-card-photo" key={photo.id} src={photo.url} />)
           : <div className="home-card-photo is-placeholder" />}
         <div className="home-card-badges">
           <span className={`badge badge--${vehicle.status}`}><span />{vehicle.status}</span>

@@ -43,20 +43,15 @@ function StatusPill({ status }: { status: string }) {
 }
 
 function VehicleCard({ vehicle, from, to }: { vehicle: { id: string; brand: string; model: string; year: number; category: string; seats: number; transmission: string; daily_rate_kes: number; status: string; plate_number: string; photos?: { url: string }[] }, from: string, to: string }) {
-  const [hero, setHero] = useState(0)
+  const photos = vehicle.photos?.slice(0, 3) ?? []
   return (
     <article className="cat-card" data-testid={`vehicle-card-${vehicle.id}`}>
       <a className="cat-card__link" href={`/vehicles/${vehicle.id}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}>
-        <figure className="cat-card__media">
-          {vehicle.photos && vehicle.photos.length > 0
-            ? <img alt={`${vehicle.brand} ${vehicle.model}`} className="cat-card__photo" src={vehicle.photos[hero]?.url ?? vehicle.photos[0].url} />
+        <figure className={`cat-card__media photo-grid ${photos.length === 0 ? 'photo-grid--empty' : photos.length === 1 ? 'photo-grid--single' : photos.length === 2 ? 'photo-grid--double' : ''}`}>
+          {photos.length > 0
+            ? photos.map((photo, index) => <img alt={`${vehicle.brand} ${vehicle.model} photo ${index + 1}`} className="cat-card__photo" key={`${photo.url}-${index}`} src={photo.url} />)
             : <div className="cat-card__placeholder"><span><PlaceholderIcon /></span></div>}
           <figcaption className="sr-only">{vehicle.brand} {vehicle.model} photos</figcaption>
-          {vehicle.photos && vehicle.photos.length > 1 && (
-            <div aria-label="Photo navigation" className="cat-card__dots">
-              {vehicle.photos.map((_, index) => <button aria-label={`Photo ${index + 1}`} className={index === hero ? 'is-active' : ''} key={index} onClick={(e) => { e.preventDefault(); e.stopPropagation(); setHero(index) }} type="button">●</button>)}
-            </div>
-          )}
         </figure>
         <div className="cat-card__body">
           <div className="cat-card__head">
