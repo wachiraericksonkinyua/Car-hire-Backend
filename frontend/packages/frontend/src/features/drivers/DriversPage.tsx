@@ -5,7 +5,7 @@ import { Camera, Pencil, Plus, Trash2, UserRound } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { useDrivers } from '../../api/queries'
 import type { Driver } from '../../api/types'
-import { Button, ConfirmDialog, ErrorState, Input, Modal, Select, Skeleton } from '../../components/ui'
+import { Button, ConfirmDialog, ErrorState, Input, Modal, ProfileAvatar, Select, Skeleton } from '../../components/ui'
 import { useAuth } from '../../hooks/AuthContext'
 import { formatEat } from '../../lib'
 import { getDriverExpiryReason } from './driverRules'
@@ -181,9 +181,13 @@ export function DriversPage() {
           return (
             <article className={`driver-card${expiryReason ? ' driver-card--expired' : ''}`} key={driver.id}>
               <div className="driver-card__header">
-                {driver.photoUrl
-                  ? <img alt={`${driver.name} profile`} className="driver-card__photo" src={driver.photoUrl} />
-                  : <span aria-hidden="true" className="driver-card__photo driver-card__photo--placeholder"><UserRound size={26} /></span>}
+                <ProfileAvatar
+                  className="driver-card__photo"
+                  fallback={<UserRound size={26} />}
+                  fallbackClassName="driver-card__photo driver-card__photo--placeholder"
+                  name={driver.name}
+                  src={driver.photoUrl}
+                />
                 <div className="driver-card__identity">
                   <h2>{driver.name}</h2>
                   <p>{driver.phone || 'No phone'}</p>

@@ -10,7 +10,7 @@ import { useAuth } from '../../hooks/AuthContext'
 import { getRoleLandingPath } from '../../hooks/roleLanding'
 import { useCan, type Permission } from '../../hooks/useCan'
 import { t } from '../../i18n'
-import { IconButton } from '../ui'
+import { IconButton, ProfileAvatar } from '../ui'
 import { RouteErrorBoundary } from '../RouteErrorBoundary'
 import { GlobalSearch } from '../../features/dashboard/GlobalSearch'
 
@@ -87,9 +87,12 @@ function UserMenu({ user, onLogout }: { user: { id: string; name: string; role: 
   return (
     <div className="staff-user-menu">
       <Link aria-label={`View ${name} profile`} to="/admin/profile">
-        {user.avatarUrl
-          ? <img alt={`${name} avatar`} className="staff-avatar staff-avatar--photo" src={user.avatarUrl} />
-          : <span aria-hidden="true" className="staff-avatar">{name.slice(0, 1).toUpperCase()}</span>}
+        <ProfileAvatar
+          className="staff-avatar staff-avatar--photo"
+          fallbackClassName="staff-avatar"
+          name={name}
+          src={user.avatarUrl}
+        />
         <span className="staff-user-menu__name">{name}</span>
       </Link>
       <button aria-label={`${t('admin.logout')}`} className="staff-topbar-logout" onClick={onLogout} title={t('admin.logout')} type="button"><LogOut aria-hidden="true" size={18} /></button>

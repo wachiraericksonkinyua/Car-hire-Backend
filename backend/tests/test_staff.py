@@ -192,7 +192,7 @@ async def test_staff_photo_upload_and_remove(db_session, api_client):
     )
     assert uploaded.status_code == 200
     photo_url = uploaded.json()["data"]["avatar_url"]
-    assert photo_url == f"/public/profile-photos/users/{AGENT_ID}"
+    assert photo_url.startswith(f"/public/profile-photos/users/{AGENT_ID}?v=")
     photo = await api_client.get(f"/api/v1{photo_url}")
     assert photo.status_code == 200
     assert photo.headers["content-type"] == "image/png"

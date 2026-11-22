@@ -5,7 +5,7 @@ memory). The refresh token is set as an HttpOnly cookie, stored only as a hash,
 and rotated on every use.
 """
 
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import (
     APIRouter,
@@ -210,7 +210,7 @@ async def upload_current_user_avatar(
     previous = user.avatar_url
     user.avatar_data = content
     user.avatar_content_type = content_type
-    user.avatar_url = f"/public/profile-photos/users/{user.id}"
+    user.avatar_url = f"/public/profile-photos/users/{user.id}?v={uuid4().hex}"
     await db.flush()
     await db.refresh(user)
     delete_image_file(previous)

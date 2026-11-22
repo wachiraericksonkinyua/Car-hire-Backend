@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Button, ConfirmDialog, DataTable, Input, Modal, Select, Toast } from '../components/ui'
+import { Button, ConfirmDialog, DataTable, Input, Modal, ProfileAvatar, Select, Toast } from '../components/ui'
 import { useAuth } from '../hooks/AuthContext'
 import { canApproveBooking } from '../hooks/useCan'
 import { useTranslation } from '../i18n'
@@ -462,30 +462,44 @@ export function ProfilePage() {
   }
 
   return (
-    <section className="page-shell">
-      <header className="page-header"><div><p className="eyebrow">Gari Poa</p><h1>Profile</h1></div></header>
+    <section className="page-shell profile-page">
+      <header className="page-header"><div><p className="eyebrow">Account</p><h1>My profile</h1><p>Manage your account details and profile photo.</p></div></header>
       {notice && <p className="field__hint" role="status">{notice}</p>}
-      <div className="card-panel stack stack--md">
-        <div><span className="label">Name</span><strong>{user?.name}</strong></div>
-        <div><span className="label">Email</span><strong>{user?.email}</strong></div>
-        <div><span className="label">Role</span><strong>{user?.role}</strong></div>
-        <div className="profile-avatar-upload">
-          {user?.avatarUrl
-            ? <img alt="Profile picture" className="profile-avatar-photo" src={user.avatarUrl} />
-            : <span aria-hidden="true" className="staff-avatar">{user?.name.slice(0, 1).toUpperCase()}</span>}
-          <input
-            accept="image/jpeg,image/png,image/webp"
-            hidden
-            onChange={(event) => {
-              const file = event.currentTarget.files?.[0]
-              event.currentTarget.value = ''
-              if (file) void uploadAvatar(file)
-            }}
-            type="file"
+      <div className="card-panel profile-card">
+        <div className="profile-identity">
+          <ProfileAvatar
+            className="profile-avatar-photo"
+            fallbackClassName="profile-avatar-placeholder"
+            name={user?.name ?? 'Account'}
+            src={user?.avatarUrl}
           />
-          <Button disabled={saving} size="sm">Upload profile picture</Button>
+          <div>
+            <p className="eyebrow">Signed in as</p>
+            <h2>{user?.name}</h2>
+            <p>{user?.email}</p>
+          </div>
         </div>
-        <p className="field__hint">Password changes are not available in this MVP yet.</p>
+        <dl className="profile-details">
+          <div><dt>Account role</dt><dd>{user?.role}</dd></div>
+          <div><dt>Account status</dt><dd>{user?.active ? 'Active' : 'Inactive'}</dd></div>
+        </dl>
+        <div className="profile-photo-controls">
+          <label aria-disabled={saving} className={`button button--primary button--sm${saving ? ' is-disabled' : ''}`}>
+            {saving ? 'Uploading…' : user?.avatarUrl ? 'Change profile photo' : 'Upload profile photo'}
+            <input
+              accept="image/jpeg,image/png,image/webp"
+              disabled={saving}
+              hidden
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0]
+                event.currentTarget.value = ''
+                if (file) void uploadAvatar(file)
+              }}
+              type="file"
+            />
+          </label>
+        </div>
+        <p className="field__hint">Use a JPG, PNG or WebP image up to 5 MB. Password changes are not available yet.</p>
       </div>
     </section>
   )

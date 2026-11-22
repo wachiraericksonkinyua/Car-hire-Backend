@@ -401,7 +401,7 @@ async def test_driver_photo_and_delete_profile(db_session, api_client):
     )
     assert uploaded.status_code == 200
     photo_url = uploaded.json()["data"]["photo_url"]
-    assert photo_url == f"/public/profile-photos/drivers/{P1}"
+    assert photo_url.startswith(f"/public/profile-photos/drivers/{P1}?v=")
     photo = await api_client.get(f"/api/v1{photo_url}")
     assert photo.status_code == 200
     assert photo.headers["content-type"] == "image/png"

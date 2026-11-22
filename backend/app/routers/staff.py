@@ -1,6 +1,6 @@
 """Staff management endpoints (owner/manager only)."""
 
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import (
     APIRouter,
@@ -277,7 +277,7 @@ async def upload_staff_photo(
     previous = target.avatar_url
     target.avatar_data = content
     target.avatar_content_type = content_type
-    target.avatar_url = f"/public/profile-photos/users/{target.id}"
+    target.avatar_url = f"/public/profile-photos/users/{target.id}?v={uuid4().hex}"
 
     await record_audit(
         db,

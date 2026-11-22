@@ -1,7 +1,7 @@
 """Driver roster, availability and driver trip endpoints."""
 
 from datetime import datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import (
     APIRouter,
@@ -368,7 +368,7 @@ async def upload_driver_photo(
     previous = profile.photo_url
     profile.photo_data = content
     profile.photo_content_type = content_type
-    profile.photo_url = f"/public/profile-photos/drivers/{profile.id}"
+    profile.photo_url = f"/public/profile-photos/drivers/{profile.id}?v={uuid4().hex}"
 
     await record_audit(
         db,
