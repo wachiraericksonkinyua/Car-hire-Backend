@@ -1,4 +1,4 @@
-# AutoHire KE
+# Gari Poa
 
 Car hire management platform for Kenya.
 

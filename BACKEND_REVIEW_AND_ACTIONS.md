@@ -1,4 +1,4 @@
-# AutoHire KE — Backend Review & Action List
+# Gari Poa — Backend Review & Action List
 
 _Last updated: after Micro-Step 12 — 29 tests passing, `alembic check` still failing (see §6)._
 

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { AtSign, Camera, CarFront, Mail, MapPin, Menu, Phone, Smartphone, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { AtSign, Camera, CarFront, HelpCircle, Mail, MapPin, Menu, Phone, Smartphone, X } from 'lucide-react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { t } from '../../i18n'
 import { APP_PROMO } from '../../features/home/homeConfig'
@@ -13,15 +13,21 @@ const publicLinks = [
 
 export function PublicLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
+
+  useEffect(() => {
+    if (!menuOpen) return undefined
+    return () => setMenuOpen(false)
+  }, [menuOpen])
+
   return (
     <div className="public-layout">
       <header className="public-header">
         <div className="public-header__inner">
           <Link aria-label={t('admin.brand')} className="brand" to="/">
-            <span className="brand__mark"><CarFront aria-hidden="true" size={25} /></span>
+            <span className="brand__mark"><CarFront aria-hidden="true" size={22} /></span>
             <span className="brand__name">AutoHire <b>KE</b></span>
           </Link>
-          <nav aria-label={t('nav.primary')} className={menuOpen ? 'public-nav is-open' : 'public-nav'}>
+          <nav aria-label={t('nav.primary')} className={menuOpen ? 'public-nav' : 'public-nav'}>
             {publicLinks.map(({ to, label, end }) => (
               <NavLink end={end} key={to} onClick={() => setMenuOpen(false)} to={to}>
                 {t(label)}
@@ -29,7 +35,7 @@ export function PublicLayout() {
             ))}
           </nav>
           <a className="header-help" href={`tel:${t('footer.phoneValue').replace(/\D/g, '')}`}>
-            <span className="header-help__icon"><Phone aria-hidden="true" size={18} /></span>
+            <span className="header-help__icon"><Phone aria-hidden="true" size={17} /></span>
             <span><small>{t('nav.help')}</small><strong>{t('footer.phoneValue')}</strong></span>
           </a>
           <button aria-expanded={menuOpen} aria-label={menuOpen ? t('nav.closeMenu') : t('nav.openMenu')} className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} type="button">
@@ -44,21 +50,21 @@ export function PublicLayout() {
         <div className={APP_PROMO ? 'public-footer__main' : 'public-footer__main public-footer__main--no-app'}>
           <section className="footer-about">
             <Link aria-label={t('admin.brand')} className="brand brand--footer" to="/">
-              <span className="brand__mark"><CarFront aria-hidden="true" size={24} /></span>
+              <span className="brand__mark"><CarFront aria-hidden="true" size={22} /></span>
               <span className="brand__name">AutoHire <b>KE</b></span>
             </Link>
             <p>{t('footer.tagline')}</p>
             <div className="footer-social" aria-label={t('footer.social')}>
-              <a aria-label={t('footer.instagram')} href="https://instagram.com"><Camera size={18} /></a>
-              <a aria-label={t('footer.facebook')} href="https://facebook.com"><AtSign size={18} /></a>
-              <a aria-label={t('footer.email')} href={`mailto:${t('footer.emailValue')}`}><Mail size={18} /></a>
+              <a aria-label={t('footer.instagram')} href="https://instagram.com"><Camera size={16} /></a>
+              <a aria-label={t('footer.facebook')} href="https://facebook.com"><AtSign size={16} /></a>
+              <a aria-label={t('footer.email')} href={`mailto:${t('footer.emailValue')}`}><Mail size={16} /></a>
             </div>
           </section>
           <section className="footer-contact">
             <h2>{t('footer.address')}</h2>
-            <p><span className="footer-icon"><MapPin size={17} /></span>{t('footer.location')}</p>
-            <p><span className="footer-icon"><Mail size={17} /></span><a href={`mailto:${t('footer.emailValue')}`}>{t('footer.emailValue')}</a></p>
-            <p><span className="footer-icon"><Phone size={17} /></span><a href={`tel:${t('footer.phoneValue').replace(/\D/g, '')}`}>{t('footer.phoneValue')}</a></p>
+            <p><span className="footer-icon"><MapPin size={15} /></span>{t('footer.location')}</p>
+            <p><span className="footer-icon"><Mail size={15} /></span><a href={`mailto:${t('footer.emailValue')}`}>{t('footer.emailValue')}</a></p>
+            <p><span className="footer-icon"><Phone size={15} /></span><a href={`tel:${t('footer.phoneValue').replace(/\D/g, '')}`}>{t('footer.phoneValue')}</a></p>
           </section>
           <section className="footer-links">
             <h2>{t('footer.links')}</h2>
@@ -72,11 +78,11 @@ export function PublicLayout() {
           </section>
           {APP_PROMO && <section className="footer-download">
             <h2>{t('footer.download')}</h2>
-            <a className="app-badge" href="#download"><Smartphone size={19} /><span><small>{t('footer.availableOn')}</small><b>{t('footer.appStore')}</b></span></a>
-            <a className="app-badge" href="#download"><Smartphone size={19} /><span><small>{t('footer.getItOn')}</small><b>{t('footer.googlePlay')}</b></span></a>
+            <a className="app-badge" href="#download"><Smartphone size={17} /><span><small>{t('footer.availableOn')}</small><b>{t('footer.appStore')}</b></span></a>
+            <a className="app-badge" href="#download"><Smartphone size={17} /><span><small>{t('footer.getItOn')}</small><b>{t('footer.googlePlay')}</b></span></a>
           </section>}
         </div>
-        <div className="public-footer__bottom"><span>© {new Date().getFullYear()} {t('footer.copyright')}</span><span>{t('footer.tagline')}</span></div>
+        <div className="public-footer__bottom"><span>© {new Date().getFullYear()} {t('footer.copyright')}</span><span className="footer-icon"><HelpCircle aria-hidden="true" size={13} /></span></div>
       </footer>
     </div>
   )

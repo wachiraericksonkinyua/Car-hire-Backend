@@ -1,4 +1,4 @@
-# Environment Setup — AutoHire KE Backend
+# Environment Setup — Gari Poa Backend
 
 Everything needed to run the FastAPI backend locally: services, environment
 variables, database setup, migrations, tests, and verification.

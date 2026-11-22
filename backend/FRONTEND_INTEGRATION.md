@@ -1,6 +1,6 @@
 # Frontend Integration Guide — FastAPI ↔ React 19 + Vite
 
-This document maps the completed **AutoHire KE FastAPI backend** to the
+This document maps the completed **Gari Poa FastAPI backend** to the
 React 19 + Vite frontend.
 
 > **Current status**

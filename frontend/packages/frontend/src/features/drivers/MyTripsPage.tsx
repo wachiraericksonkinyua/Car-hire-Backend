@@ -51,7 +51,7 @@ export function MyTripsPage() {
   return (
     <main className="driver-app">
       <header className="driver-app-header">
-        <div><p>AutoHire KE</p><h1>My trips</h1><span>{user?.name}</span></div>
+        <div><p>Gari Poa</p><h1>My trips</h1><span>{user?.name}</span></div>
         <Button aria-label="Sign out" onClick={() => void signOut()} variant="ghost"><LogOut aria-hidden="true" size={18} /></Button>
       </header>
       {actionError && <p className="driver-trip-error" role="alert">{actionError}</p>}

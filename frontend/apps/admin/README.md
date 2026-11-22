@@ -1,6 +1,6 @@
-# AutoHire KE — Staff Admin
+# Gari Poa — Staff Admin
 
-Staff back-office React 19 + Vite app for AutoHire KE.
+Staff back-office React 19 + Vite app for Gari Poa.
 
 | Item | Value |
 |---|---|

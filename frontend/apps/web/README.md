@@ -1,6 +1,6 @@
-# AutoHire KE — Customer Web
+# Gari Poa — Customer Web
 
-Customer-facing React 19 + Vite app for AutoHire KE.
+Customer-facing React 19 + Vite app for Gari Poa.
 
 | Item | Value |
 |---|---|

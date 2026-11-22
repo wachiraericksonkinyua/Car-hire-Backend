@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI):
 
 # Initialize the FastAPI application
 app = FastAPI(
-    title="AutoHire KE API",
+    title="Gari Poa API",
     version="0.1.0",
     description="Single-company Car Hire Management API for Kenya",
     lifespan=lifespan,

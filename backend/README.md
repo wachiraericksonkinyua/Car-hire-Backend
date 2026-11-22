@@ -1,4 +1,4 @@
-# backend — AutoHire KE backend
+# backend — Gari Poa backend
 
 FastAPI + async SQLAlchemy + PostgreSQL. Single-tenant MVP.
 

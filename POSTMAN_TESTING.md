@@ -1,4 +1,4 @@
-# Postman Testing Guide — AutoHire KE Backend
+# Postman Testing Guide — Gari Poa Backend
 
 The API runs locally against Supabase; Postman talks to
 `http://localhost:8000`. The local PostgreSQL cluster is only for pytest.

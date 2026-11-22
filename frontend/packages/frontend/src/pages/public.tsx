@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatInTimeZone } from 'date-fns-tz'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { ArrowRight, ArrowUpDown, CalendarDays, Check, Clock3, Eye, Mail, MapPin, Map, Phone, Building2, MessageSquare } from 'lucide-react'
 import {
   calculatePublicQuote,
   createPublicBooking,
@@ -17,13 +18,6 @@ import { formatEat, formatKes, normalisePhone, toUtc } from '../lib'
 
 const EAT = 'Africa/Nairobi'
 const categories = ['Economy', 'Compact SUV', '4x4', 'Minivan', 'Luxury']
-const extraOptions: { value: PublicExtra; label: string }[] = [
-  { value: 'baby_seat', label: 'Baby seat' },
-  { value: 'rooftop_tent', label: 'Rooftop tent' },
-  { value: 'cooler_box', label: 'Cooler box' },
-  { value: 'airport_pickup', label: 'Airport pickup' },
-]
-
 function eatInput(value: Date | string): string {
   return formatInTimeZone(value, EAT, "yyyy-MM-dd'T'HH:mm")
 }
@@ -40,25 +34,55 @@ function statusClass(status: string): string {
   return status.toLowerCase().replace(/\s+/g, '-')
 }
 
+function formatStatus(status: string) {
+  return status.charAt(0).toUpperCase() + status.slice(1).replaceAll('_', ' ')
+}
+
+function StatusPill({ status }: { status: string }) {
+  return <span className={`cat-status cat-status--${statusClass(status)}`}><span className="cat-status__dot" />{formatStatus(status)}</span>
+}
+
 function VehicleCard({ vehicle, from, to }: { vehicle: { id: string; brand: string; model: string; year: number; category: string; seats: number; transmission: string; daily_rate_kes: number; status: string; plate_number: string; photos?: { url: string }[] }, from: string, to: string }) {
+  const [hero, setHero] = useState(0)
   return (
-    <article className="customer-vehicle-card">
-      <div className="customer-vehicle-card__photo" aria-hidden="true">
-        {vehicle.photos?.[0] ? <img alt="" src={vehicle.photos[0].url} /> : vehicle.brand.slice(0, 1)}
-      </div>
-      <div className="customer-vehicle-card__body">
-        <div className="customer-vehicle-card__heading">
-          <div>
-            <h3>{vehicle.brand} {vehicle.model}</h3>
-            <p>{vehicle.year} · {vehicle.category} · {vehicle.plate_number}</p>
+    <article className="cat-card" data-testid={`vehicle-card-${vehicle.id}`}>
+      <a className="cat-card__link" href={`/vehicles/${vehicle.id}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}>
+        <figure className="cat-card__media">
+          {vehicle.photos && vehicle.photos.length > 0
+            ? <img alt={`${vehicle.brand} ${vehicle.model}`} className="cat-card__photo" src={vehicle.photos[hero]?.url ?? vehicle.photos[0].url} />
+            : <div className="cat-card__placeholder"><span><PlaceholderIcon /></span></div>}
+          <figcaption className="sr-only">{vehicle.brand} {vehicle.model} photos</figcaption>
+          {vehicle.photos && vehicle.photos.length > 1 && (
+            <div aria-label="Photo navigation" className="cat-card__dots">
+              {vehicle.photos.map((_, index) => <button aria-label={`Photo ${index + 1}`} className={index === hero ? 'is-active' : ''} key={index} onClick={(e) => { e.preventDefault(); e.stopPropagation(); setHero(index) }} type="button">●</button>)}
+            </div>
+          )}
+        </figure>
+        <div className="cat-card__body">
+          <div className="cat-card__head">
+            <div>
+              <p className="cat-card__cat">{vehicle.category || 'Vehicle'}</p>
+              <h3 className="cat-card__title">{vehicle.brand} {vehicle.model}</h3>
+              <p className="cat-card__sub">{vehicle.year} · {vehicle.plate_number}</p>
+            </div>
+            <StatusPill status={vehicle.status} />
           </div>
-          <strong>{formatKes(vehicle.daily_rate_kes)}<small>/day</small></strong>
+          <div className="cat-card__meta">
+            <span><MapPin aria-hidden="true" size={15} /> {vehicle.seats} seats · {vehicle.transmission}</span>
+            <strong className="cat-price">{formatKes(vehicle.daily_rate_kes)}/day</strong>
+          </div>
+          <div className="cat-card__action"><span>Details →</span></div>
         </div>
-        <p className="customer-vehicle-card__meta">{vehicle.seats} seats · {vehicle.transmission} · <span className={`customer-status customer-status--${statusClass(vehicle.status)}`}>{vehicle.status}</span></p>
-        <Link className="button button--primary button--sm" to={`/vehicles/${vehicle.id}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}>View & book</Link>
-      </div>
+      </a>
     </article>
   )
+}
+
+function PlaceholderIcon() {
+  return <CarIconPreview />
+}
+function CarIconPreview() {
+  return <span aria-hidden="true" style={{ fontSize: 40 }}>🚗</span>
 }
 
 export function VehiclesPage() {
@@ -66,7 +90,7 @@ export function VehiclesPage() {
   const [from, setFrom] = useState(searchParams.get('from') ? eatInput(searchParams.get('from')!) : defaultPickup())
   const [to, setTo] = useState(searchParams.get('to') ? eatInput(searchParams.get('to')!) : defaultReturn())
   const [category, setCategory] = useState(searchParams.get('category') ?? '')
-  const [brand, setBrand] = useState('')
+  const [brand, setBrand] = useState(searchParams.get('brand') ?? '')
   const [availableOnly, setAvailableOnly] = useState(true)
 
   const filters = useMemo(() => ({
@@ -83,33 +107,57 @@ export function VehiclesPage() {
     queryFn: () => fetchPublicVehicles(filters),
   })
 
+  const items = vehicles.data?.items ?? []
+  const availableCount = items.filter((v) => v.status === 'Available').length
+
   return (
-    <section className="customer-page">
-      <header className="customer-page__header">
-        <p className="customer-eyebrow">Our fleet</p>
-        <h1>Find your next car</h1>
-        <p>Choose your dates, compare the fleet and book online.</p>
+    <section className="page catalogue">
+      <header className="page__header">
+        <p className="eyebrow">Our fleet</p>
+        <h1>Choose your car</h1>
+        <p>Search the fleet, filter by type and pick a car for your dates.</p>
       </header>
 
-      <p className="customer-inventory-count" role="status">
-        {vehicles.isLoading ? 'Checking availability…' : `${vehicles.data?.items.length ?? 0} cars available for these dates`}
-      </p>
-
-      <div className="customer-filter-bar">
-        <label>Pickup<input type="datetime-local" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
-        <label>Return<input type="datetime-local" value={to} onChange={(event) => setTo(event.target.value)} /></label>
-        <label>Category<select value={category} onChange={(event) => setCategory(event.target.value)}><option value="">All categories</option>{categories.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-        <label>Brand<input placeholder="Toyota" value={brand} onChange={(event) => setBrand(event.target.value)} /></label>
-        <label className="customer-check"><input type="checkbox" checked={availableOnly} onChange={(event) => setAvailableOnly(event.target.checked)} /> Available only</label>
+      <div className="filter-bar">
+        <input aria-label="Pickup date" placeholder="Pickup (EAT)" type="datetime-local" value={from} onChange={(e) => setFrom(e.target.value)} />
+        <input aria-label="Return date" placeholder="Return (EAT)" type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} />
+        <select aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
+          <option value="">All categories</option>
+          {categories.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+        <input aria-label="Brand" placeholder="Toyota" value={brand} onChange={(e) => setBrand(e.target.value)} />
+        <button aria-label="Search fleet" className="filter-bar__search" type="button"><ArrowUpDown aria-hidden="true" size={16} /> Filter</button>
+        <label className="filter-bar__check"><input type="checkbox" checked={availableOnly} onChange={(e) => setAvailableOnly(e.target.checked)} /> Available only</label>
       </div>
 
       {vehicles.isLoading && <Skeleton rows={4} />}
       {vehicles.isError && <ErrorState title="Could not load vehicles" onRetry={() => void vehicles.refetch()} retryLabel="Retry" />}
-      {vehicles.data?.items.length === 0 && <EmptyState title="No vehicles match those dates" description="Try a different date range or category." />}
-      <div className="customer-vehicle-grid">
+      {items.length === 0 && !vehicles.isLoading && !vehicles.isError && <EmptyState description="Try different dates or category." title="No vehicles match those dates" />}
+
+      <div className="cat-grid">
         {vehicles.data?.items.map((vehicle) => <VehicleCard from={toUtc(from)} key={vehicle.id} to={toUtc(to)} vehicle={vehicle} />)}
       </div>
+      {!vehicles.isLoading && !vehicles.isError && items.length > 0 && (
+        <p className="results-note">{availableCount} cars available for those dates</p>
+      )}
     </section>
+  )
+}
+
+function PhotoCarousel({ photos }: { photos: { id: string; url: string }[] }) {
+  const [hero, setHero] = useState(0)
+  return (
+    <div className="detail-gallery" role="group" aria-label="Vehicle photos">
+      <img alt="Vehicle" className="detail-gallery__main" src={photos[hero]?.url} />
+      <div className="detail-gallery__thumbs">
+        {photos.map((photo, index) => (
+          <button className={`detail-thumb ${index === hero ? 'is-active' : ''}`} key={photo.id} onClick={() => setHero(index)} type="button">
+            <img alt={`Photo ${index + 1}`} src={photo.url} />
+          </button>
+        ))}
+        {photos.length === 1 && <span className="detail-gallery__count">1 photo</span>}
+      </div>
+    </div>
   )
 }
 
@@ -117,13 +165,8 @@ export function VehicleDetailsPage() {
   const { id = '' } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const [from, setFrom] = useState(searchParams.get('from') ? eatInput(searchParams.get('from')!) : defaultPickup())
-  const [to, setTo] = useState(searchParams.get('to') ? eatInput(searchParams.get('to')!) : defaultReturn())
-  const [withChauffeur, setWithChauffeur] = useState(false)
-  const [zone, setZone] = useState<'in_town' | 'upcountry'>('in_town')
-  const [extras, setExtras] = useState<PublicExtra[]>([])
-  const [photoIndex, setPhotoIndex] = useState(0)
-
+  const [from] = useState(searchParams.get('from') ? eatInput(searchParams.get('from')!) : defaultPickup())
+  const [to] = useState(searchParams.get('to') ? eatInput(searchParams.get('to')!) : defaultReturn())
   const pickup = toUtc(from)
   const returnAt = toUtc(to)
   const vehicle = useQuery({
@@ -132,74 +175,67 @@ export function VehicleDetailsPage() {
     enabled: Boolean(id),
   })
   const quote = useQuery({
-    queryKey: ['public-quote', id, pickup, returnAt, withChauffeur, zone, extras],
-    queryFn: () => calculatePublicQuote({ vehicle_id: id, pickup_at: pickup, return_at: returnAt, with_chauffeur: withChauffeur, chauffeur_zone: withChauffeur ? zone : undefined, extras }),
+    queryKey: ['public-quote', id, pickup, returnAt],
+    queryFn: () => calculatePublicQuote({ vehicle_id: id, pickup_at: pickup, return_at: returnAt, with_chauffeur: false, extras: [] }),
     enabled: Boolean(id),
   })
 
-  if (vehicle.isLoading) return <section className="customer-page"><Skeleton rows={5} /></section>
-  if (vehicle.isError || !vehicle.data) return <section className="customer-page"><ErrorState title="Vehicle not found" onRetry={() => void vehicle.refetch()} retryLabel="Retry" /></section>
+  if (vehicle.isLoading) return <section className="page"><Skeleton rows={5} /></section>
+  if (vehicle.isError || !vehicle.data) return <section className="page"><ErrorState title="Vehicle not found" onRetry={() => void vehicle.refetch()} retryLabel="Retry" /></section>
   const car = vehicle.data
   const photos = car.photos ?? []
-  const heroPhoto = photos[photoIndex] ?? photos[0]
-
-  function toggleExtra(code: PublicExtra) {
-    setExtras((current) => current.includes(code) ? current.filter((item) => item !== code) : [...current, code])
-  }
 
   return (
-    <section className="customer-page customer-detail">
-      <Link className="customer-back" to={`/vehicles?from=${encodeURIComponent(pickup)}&to=${encodeURIComponent(returnAt)}`}>← Back to fleet</Link>
-      <div className="customer-detail__grid">
-        <div>
-          {heroPhoto
-            ? <div className="customer-detail__photo"><img alt={`${car.brand} ${car.model}`} src={heroPhoto.url} /></div>
-            : <div className="customer-detail__photo" aria-hidden="true">{car.brand.slice(0, 1)}</div>}
-          {photos.length > 1 && <div className="customer-detail__thumbs">
-            {photos.map((photo, index) => <button
-              aria-label={`Show image ${index + 1}`}
-              aria-pressed={index === photoIndex}
-              className={index === photoIndex ? 'is-active' : ''}
-              key={photo.id}
-              onClick={() => setPhotoIndex(index)}
-              type="button"
-            ><img alt="" src={photo.url} /></button>)}
-          </div>}
-          <h1>{car.brand} {car.model}</h1>
-          <p className="customer-eyebrow">{car.year} · {car.category} · {car.plate_number}</p>
-          <p><span className={`customer-status customer-status--${statusClass(car.status)}`}>{car.status}</span>{car.insurance_expired && <span className="customer-warning"> Insurance expired — cannot be booked</span>}</p>
-          <dl className="customer-specs">
-            <div><dt>Seats</dt><dd>{car.seats}</dd></div>
-            <div><dt>Bags</dt><dd>{car.bags}</dd></div>
-            <div><dt>Transmission</dt><dd>{car.transmission}</dd></div>
-            <div><dt>Fuel</dt><dd>{car.fuel}</dd></div>
-            <div><dt>Daily rate</dt><dd>{formatKes(car.daily_rate_kes)}</dd></div>
-            <div><dt>Deposit</dt><dd>{formatKes(car.deposit_kes)}</dd></div>
-          </dl>
-          <h2>Next 30 days</h2>
-          {car.booked_ranges.length === 0 ? <p>No bookings in the next 30 days.</p> : <ul className="customer-ranges">{car.booked_ranges.map((range) => <li key={range.booking_id}>{formatEat(range.pickup_at)} → {formatEat(range.return_at)} <span>{range.status}</span></li>)}</ul>}
+    <section className="page detail">
+      <Link className="back-link" to={`/vehicles?from=${encodeURIComponent(pickup)}&to=${encodeURIComponent(returnAt)}`}>← Back to fleet</Link>
+      <div className="detail-layout">
+        <div className="detail-left">
+          {photos.length > 0 && <PhotoCarousel photos={photos} />}
+          <div className="detail-summary">
+            <p className="eyebrow">{car.category}</p>
+            <h1 className="detail-title">{car.brand} {car.model}</h1>
+            <p className="detail-sub">{car.year} · {car.plate_number} · {car.seats} seats · {car.transmission}</p>
+            <div className="detail-features">
+              <div className="detail-feature"><MapPin aria-hidden="true" /><span>Pickup at destination</span></div>
+              <div className="detail-feature"><Clock3 aria-hidden="true" /><span>Flexible holds</span></div>
+              <div className="detail-feature"><Check aria-hidden="true" /><span>Self drive or chauffeur</span></div>
+            </div>
+          </div>
         </div>
-
-        <aside className="customer-book-panel">
-          <h2>Build your quote</h2>
-          <label>Pickup<input type="datetime-local" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
-          <label>Return<input type="datetime-local" value={to} onChange={(event) => setTo(event.target.value)} /></label>
-          <label className="customer-check"><input type="checkbox" checked={withChauffeur} onChange={(event) => setWithChauffeur(event.target.checked)} /> Add a chauffeur</label>
-          {withChauffeur && <label>Zone<select value={zone} onChange={(event) => setZone(event.target.value as 'in_town' | 'upcountry')}><option value="in_town">In town</option><option value="upcountry">Upcountry</option></select></label>}
-          <fieldset className="customer-extras"><legend>Extras</legend>{extraOptions.map((extra) => <label key={extra.value}><input type="checkbox" checked={extras.includes(extra.value)} onChange={() => toggleExtra(extra.value)} /> {extra.label}</label>)}</fieldset>
-          {quote.isLoading && <Skeleton rows={2} />}
-          {quote.data && <dl className="customer-quote">
-            <div><dt>Base ({quote.data.days} days)</dt><dd>{formatKes(quote.data.base_rental_kes)}</dd></div>
-            {quote.data.chauffeur_fee_kes > 0 && <div><dt>Chauffeur</dt><dd>{formatKes(quote.data.chauffeur_fee_kes)}</dd></div>}
-            {quote.data.extras.map((line) => <div key={line.code}><dt>{line.label}</dt><dd>{formatKes(line.amount_kes)}</dd></div>)}
-            <div><dt>VAT ({quote.data.vat_percent}%)</dt><dd>{formatKes(quote.data.vat_kes)}</dd></div>
-            <div><dt>Refundable deposit</dt><dd>{formatKes(quote.data.deposit_kes)}</dd></div>
-            <div className="customer-quote__total"><dt>Total due</dt><dd>{formatKes(quote.data.total_due_kes)}</dd></div>
-          </dl>}
-          <Button disabled={!quote.data || car.insurance_expired} onClick={() => navigate(`/checkout?${new URLSearchParams({ vehicleId: id, pickup, return: returnAt, chauffeur: String(withChauffeur), zone, extras: extras.join(',') })}`)}>Book this car</Button>
+        <aside className="detail-right">
+          <div className="card">
+            <div className="card__head"><h3>Details & rates</h3><StatusPill status={car.status} /></div>
+            <div className="detail-specs">
+              <div className="detail-stat"><span>Year</span><strong>{car.year}</strong></div>
+              <div className="detail-stat"><span>Seats</span><strong>{car.seats}</strong></div>
+              <div className="detail-stat"><span>Bags</span><strong>{car.bags}</strong></div>
+              <div className="detail-stat"><span>Fuel</span><strong>{car.fuel}</strong></div>
+              <div className="detail-stat"><span>Mileage cap</span><strong>{car.mileage_cap_km?.toLocaleString()} km</strong></div>
+              <div className="detail-stat"><span>Deposit (refundable)</span><strong>{formatKes(car.deposit_kes)}</strong></div>
+              <div className="detail-stat"><span>Daily rate</span><strong>{formatKes(car.daily_rate_kes)}</strong></div>
+            </div>
+          </div>
+          {car.booked_ranges.length > 0 && (
+            <div className="card">
+              <h3>Outstanding rental</h3>
+              <ul className="booked-ranges">{car.booked_ranges.map((range) => <li key={range.booking_id}>{formatEat(range.pickup_at)} – {formatEat(range.return_at)} <StatusPill status={range.status} /></li>)}</ul>
+            </div>
+          )}
         </aside>
       </div>
+      <div className="detail-cta-row">
+        <Button className="detail-cta" disabled={!quote.data || car.insurance_expired} onClick={() => navigate(`/checkout?${new URLSearchParams({ vehicleId: id, pickup, return: returnAt })}`)}><ArrowUpDown aria-hidden="true" size={16} /> Book this car</Button>
+      </div>
     </section>
+  )
+}
+
+function LabelInput({ label, ...rest }: any) {
+  return (
+    <label className="form-field">
+      <span className="form-field__label">{label}</span>
+      <input className="control" {...rest} />
+    </label>
   )
 }
 
@@ -225,7 +261,7 @@ export function CheckoutPage() {
     enabled: Boolean(vehicleId && pickup && returnAt),
   })
 
-  if (!vehicleId || !pickup || !returnAt) return <section className="customer-page"><EmptyState title="Start from a vehicle" description="Choose a car and dates first." /></section>
+  if (!vehicleId || !pickup || !returnAt) return <section className="page"><EmptyState title="Start from a vehicle" description="Choose a car and dates first." /></section>
 
   async function submit() {
     setError(null)
@@ -251,8 +287,6 @@ export function CheckoutPage() {
       })
       setBooking(result)
       setPayPhone(normalisePhone(customer.phone))
-      // Refresh the catalogue immediately so the reserved car disappears
-      // from the "available" list without a manual reload.
       await queryClient.invalidateQueries({ queryKey: ['public-vehicles'] })
       await queryClient.invalidateQueries({ queryKey: ['public-vehicle'] })
     } catch (err) {
@@ -274,41 +308,44 @@ export function CheckoutPage() {
   }
 
   return (
-    <section className="customer-page customer-checkout">
-      <h1>Complete your booking</h1>
-      <div className="customer-checkout__grid">
-        <div className="customer-panel">
-          {!booking ? <>
-            <label>Full name<input value={customer.name} onChange={(event) => setCustomer({ ...customer, name: event.target.value })} /></label>
-            <label>Phone<input placeholder="0712 345 678" value={customer.phone} onChange={(event) => setCustomer({ ...customer, phone: event.target.value })} /></label>
-            <label>Email<input type="email" value={customer.email} onChange={(event) => setCustomer({ ...customer, email: event.target.value })} /></label>
-            <label>National ID / Passport<input value={customer.idNumber} onChange={(event) => setCustomer({ ...customer, idNumber: event.target.value })} /></label>
-            <label>Pickup location<input value={customer.pickupLocation} onChange={(event) => setCustomer({ ...customer, pickupLocation: event.target.value })} /></label>
-            {error && <p className="customer-error" role="alert">{error}</p>}
-            <Button disabled={creating} onClick={() => void submit()}>{creating ? 'Creating…' : 'Reserve now'}</Button>
-          </> : <>
-            <h2>Reservation {booking.reference}</h2>
-            <p>Status: <strong>{booking.status}</strong></p>
-            <p>Hold expires: {formatEat(booking.hold_expires_at)}</p>
-            <p>Total: {formatKes(booking.total_kes)}</p>
-            <label>M-Pesa phone<input value={payPhone} onChange={(event) => setPayPhone(event.target.value)} /></label>
-            <Button onClick={() => void pay()}>Pay with M-Pesa</Button>
-            {payMessage && <p>{payMessage}</p>}
-            <p><Link to={`/booking/${encodeURIComponent(booking.reference)}?phone=${encodeURIComponent(payPhone)}`}>View booking status</Link></p>
-          </>}
+    <section className="page checkout">
+      <div className="checkout-layout">
+        <div className="card">
+          <div className="card__head"><h2>Booking summary</h2><StatusPill status={booking?.status ?? 'Reserved'} /></div>
+          {!booking && (
+            <>
+              <LabelInput label="Full name" value={customer.name} onChange={(e: any) => setCustomer({ ...customer, name: e.target.value })} />
+              <LabelInput label="Phone" placeholder="0712 345 678" value={customer.phone} onChange={(e: any) => setCustomer({ ...customer, phone: e.target.value })} />
+              <LabelInput type="email" label="Email" value={customer.email} onChange={(e: any) => setCustomer({ ...customer, email: e.target.value })} />
+              <LabelInput label="National ID / Passport" value={customer.idNumber} onChange={(e: any) => setCustomer({ ...customer, idNumber: e.target.value })} />
+              <LabelInput label="Pickup location" value={customer.pickupLocation} onChange={(e: any) => setCustomer({ ...customer, pickupLocation: e.target.value })} />
+              {error && <p className="error" role="alert">{error}</p>}
+              <Button disabled={creating} onClick={() => void submit()}><ArrowRight aria-hidden="true" size={16} /> {creating ? 'Creating…' : 'Reserve now'}</Button>
+            </>
+          )}
+          {booking && (
+            <div className="booking-summary">
+              <h2>Reservation {booking.reference}</h2>
+              <dl className="summary-rows"><div><dt>Status</dt><dd><StatusPill status={booking.status} /></dd></div><div><dt>Hold expires</dt><dd>{formatEat(booking.hold_expires_at)}</dd></div><div><dt>Total</dt><dd>{formatKes(booking.total_kes)}</dd></div></dl>
+              <LabelInput label="M-Pesa phone" value={payPhone} onChange={(e: any) => setPayPhone(e.target.value)} />
+              <Button onClick={() => void pay()}>Pay with M-Pesa</Button>
+              {payMessage && <p className="pay-message"><Check aria-hidden="true" size={16} /> {payMessage}</p>}
+              <Link className="secondary-link" to={`/booking/${encodeURIComponent(booking.reference)}?phone=${encodeURIComponent(payPhone)}`}>View booking status</Link>
+            </div>
+          )}
         </div>
-        <aside className="customer-panel customer-panel--summary">
-          <h2>Price summary</h2>
+        <div className="card sidebar">
+          <div className="card__head"><h2>Price summary</h2><span className="chip">{pickup} · {returnAt}</span></div>
           {quote.isLoading && <Skeleton rows={3} />}
-          {quote.data && <dl className="customer-quote">
-            <div><dt>Base ({quote.data.days} days)</dt><dd>{formatKes(quote.data.base_rental_kes)}</dd></div>
-            {quote.data.chauffeur_fee_kes > 0 && <div><dt>Chauffeur</dt><dd>{formatKes(quote.data.chauffeur_fee_kes)}</dd></div>}
-            {quote.data.extras.map((line) => <div key={line.code}><dt>{line.label}</dt><dd>{formatKes(line.amount_kes)}</dd></div>)}
-            <div><dt>VAT</dt><dd>{formatKes(quote.data.vat_kes)}</dd></div>
-            <div><dt>Refundable deposit</dt><dd>{formatKes(quote.data.deposit_kes)}</dd></div>
-            <div className="customer-quote__total"><dt>Total</dt><dd>{formatKes(quote.data.total_due_kes)}</dd></div>
-          </dl>}
-        </aside>
+          {quote.data && <div className="quote-summary">
+            <div className="summary-row"><dt>Base ({quote.data.days} days)</dt><dd>{formatKes(quote.data.base_rental_kes)}</dd></div>
+            {quote.data.chauffeur_fee_kes > 0 && <div className="summary-row"><dt>Chauffeur</dt><dd>{formatKes(quote.data.chauffeur_fee_kes)}</dd></div>}
+            {quote.data.extras.map((line) => <div className="summary-row" key={line.code}><dt>{line.label}</dt><dd>{formatKes(line.amount_kes)}</dd></div>)}
+            <div className="summary-row"><dt>VAT ({quote.data.vat_percent}%)</dt><dd>{formatKes(quote.data.vat_kes)}</dd></div>
+            <div className="summary-row"><dt>Refundable deposit</dt><dd>{formatKes(quote.data.deposit_kes)}</dd></div>
+            <div className="summary-total"><dt>Total due</dt><dd>{formatKes(quote.data.total_due_kes)}</dd></div>
+          </div>}
+        </div>
       </div>
     </section>
   )
@@ -345,41 +382,106 @@ export function BookingPage() {
     }
   }
 
+  const canPay = booking.data?.status === 'Reserved' && !checkoutId
+
   return (
-    <section className="customer-page customer-booking-status">
-      <h1>Booking status</h1>
-      <div className="customer-panel">
-        <label>Booking reference<input value={ref} readOnly /></label>
-        <label>Phone used for booking<input value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
-        <Button onClick={() => setSubmittedPhone(normalisePhone(phone))}>Check booking</Button>
-        {booking.isLoading && <Skeleton rows={3} />}
-        {booking.isError && <p className="customer-error">{booking.error instanceof Error ? booking.error.message : 'Booking not found'}</p>}
-        {booking.data && <>
-          <h2>{booking.data.reference}</h2>
-          <p>Status: <strong>{payment.data?.booking_status ?? booking.data.status}</strong></p>
-          <p>Vehicle: {booking.data.vehicle_id}</p>
-          <p>Pickup: {formatEat(booking.data.pickup_at)}</p>
-          <p>Return: {formatEat(booking.data.return_at)}</p>
-          <p>Total: {formatKes(booking.data.total_kes)}</p>
-          <p>Payment: {payment.data?.status ?? booking.data.payment_status ?? 'Not started'}</p>
-          {payment.data?.mpesa_receipt && <p>Receipt: {payment.data.mpesa_receipt}</p>}
-          {payment.data?.amount_mismatch && <p className="customer-warning">Payment amount mismatch — staff review required.</p>}
-          {payment.data?.refund_required && <p className="customer-warning">Payment received but requires manual refund review.</p>}
-          {booking.data.status === 'Reserved' && !booking.data.payment_status && !checkoutId && <>
-            <Button onClick={() => void pay()}>Pay with M-Pesa</Button>
-            {payError && <p className="customer-error">{payError}</p>}
-          </>}
-          {checkoutId && <p>Waiting for confirmation…</p>}
-        </>}
+    <section className="page status-page">
+      <div className="status-hero">
+        <div className="status-icon"><Eye aria-hidden="true" size={22} /></div>
+        <div><h1>Booking status</h1><p>Check how your reservation is doing.</p></div>
+      </div>
+      {!ref && !submittedPhone && (
+        <div className="card lookup">
+          <h2>Look up your booking</h2>
+          <p>Enter the booking reference and phone number you used.</p>
+          <LabelInput label="Booking reference" value={ref} onChange={() => setSubmittedPhone('')} />
+          <LabelInput label="Phone" value={phone} onChange={(e: any) => setPhone(e.target.value)} />
+          <Button onClick={() => setSubmittedPhone(normalisePhone(phone))}><Map aria-hidden="true" size={16} /> Check booking</Button>
+        </div>
+      )}
+      {booking.isLoading && <Skeleton rows={3} />}
+      {booking.isError && <p className="error">{booking.error instanceof Error ? booking.error.message : 'Booking not found'}</p>}
+      {booking.data && (
+        <div className="status-grid">
+          <div className="card"><div className="label-row"><Map aria-hidden="true" size={18} /><p>Booking reference</p><h3>{booking.data.reference}</h3></div><div className="label-row"><h3>Status</h3><StatusPill status={payment.data?.booking_status ?? booking.data.status} /></div></div>
+          <div className="card"><div className="label-row"><Phone aria-hidden="true" size={18} /><p>Phone</p><h3>{submittedPhone}</h3></div><div className="label-row"><h3>Vehicle</h3><h3>{booking.data.vehicle_id.slice(0, 8)}</h3></div></div>
+          <div className="card"><div className="label-row"><CalendarDays aria-hidden="true" size={18} /><p>Pickup</p><h3>{formatEat(booking.data.pickup_at)}</h3></div><div className="label-row"><h3>Return</h3><h3>{formatEat(booking.data.return_at)}</h3></div></div>
+          <div className="card"><div className="label-row"><DollarLabel /></div><div className="label-row"><h3>Total</h3><h3>{formatKes(booking.data.total_kes)}</h3></div></div>
+        </div>
+      )}
+      {payment.data && <div className="status-card payment"><div className="label-row"><Check aria-hidden="true" size={16} /><span>Payment</span><StatusPill status={payment.data.status} /></div>{payment.data.mpesa_receipt && <div className="label-row"><span>Receipt</span><span>{payment.data.mpesa_receipt}</span></div>}</div>}
+      {canPay && <div className="card"><Button className="full-button" onClick={() => void pay()}><ArrowRight aria-hidden="true" size={16} /> Pay with M-Pesa</Button></div>}
+      {payError && <p className="error" role="alert">{payError}</p>}
+    </section>
+  )
+}
+
+function DollarLabel() {
+  return <span><span>Money</span><IconOnly /></span>
+}
+function IconOnly() {
+  return <svg style={{ fontSize: 18 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} width={18} height={18}><line x1="12" x2="12" y1="5" y2="19" /><line x1="3" x2="21" y1="12" y2="12" /></svg>
+}
+
+export function AboutPage() {
+  return (
+    <section className="page">
+      <header className="page__header">
+        <p className="eyebrow">About Gari Poa</p>
+        <h1>Rent a car that moves with you</h1>
+        <p className="lead">Gari Poa combines a modern fleet with reliable gear transport and clear pay-as-you-go rates.</p>
+      </header>
+      <div className="about-grid">
+        <div className="card">
+          <div className="card__head"><h2>Our promise</h2><Building2 aria-hidden="true" size={22} /></div>
+          <ul className="about-points"><li>Modern fleets with colour-coded trim features.</li><li>Transparent, shock-free rates in KES.</li><li>Professional photo-proven mileage terms.</li><li>Instant dispatch via phone or app.</li></ul>
+        </div>
+        <div className="card">
+          <div className="card__head"><h2>How we work</h2><Clock3 aria-hidden="true" size={22} /></div>
+          <ul className="about-points"><li>Secure your booking with a timed free hold.</li><li>M-Pesa, bank transfer or pay at pickup.</li><li>Inspection photos captured on arrival and return.</li></ul>
+        </div>
+        <div className="card">
+          <div className="card__head"><h2>What you get</h2><Eye aria-hidden="true" size={22} /></div>
+          <ul className="about-points"><li>Customer support on call from 8am to 7pm.</li><li>24/7 emergency recovery coordination.</li><li>Water bottle, tissues and internet hotspots.</li></ul>
+        </div>
       </div>
     </section>
   )
 }
 
-export function AboutPage() {
-  return <section className="customer-page"><h1>About AutoHire KE</h1><p>Reliable car hire for business, safari and everyday travel across Kenya.</p></section>
+function openMailto() {
+  window.location.href = 'mailto:hello@autohire.ke'
 }
 
 export function ContactPage() {
-  return <section className="customer-page"><h1>Contact us</h1><p>Call our desk or email us and we will help with your booking.</p></section>
+  return (
+    <section className="page">
+      <header className="page__header">
+        <p className="eyebrow">Contact us</p>
+        <h1>Need help? Our team is ready to meet you.</h1>
+        <p className="lead">Send a message or visit our desk — we’ll help you pick a car and plan your trip.</p>
+      </header>
+      <div className="contact-grid">
+        <div className="card">
+          <div className="card__head"><h2>Send us a message</h2><MessageSquare aria-hidden="true" size={22} /></div>
+          <form className="form-column">
+            <LabelInput label="Name" />
+            <LabelInput label="Phone" placeholder="0712 345 678" />
+            <LabelInput label="Email" type="email" />
+            <textarea aria-label="Message" className="control" placeholder="What would you like to know?" rows={4} />
+            <Button className="full-button" onClick={openMailto}>Send message</Button>
+          </form>
+        </div>
+        <div className="card">
+          <div className="card__head"><h2>Visit our desk</h2><MapPin aria-hidden="true" size={22} /></div>
+          <ul className="contact-list"><li><MapPin aria-hidden="true" size={18} />{' '}Mombasa Road, Nairobi, Kenya</li><li><Phone aria-hidden="true" size={18} />{' '}+254 700 123 456</li><li><Mail aria-hidden="true" size={18} /><span>{' '}Email: hello@autohire.ke</span></li></ul>
+          <p className="lead">Office hours: 8:00 am – 7:00 pm, Monday to Saturday.</p>
+        </div>
+        <div className="card wide">
+          <div className="card__head"><h2>How we get you there</h2><Check aria-hidden="true" size={22} /></div>
+          <ul className="about-points"><li>Pickup on time with security photo guarantee.</li><li>Inter-fleet transfers via taxi or rideshare.</li><li>Productible tracking and booking alerts via SMS.</li></ul>
+        </div>
+      </div>
+    </section>
+  )
 }

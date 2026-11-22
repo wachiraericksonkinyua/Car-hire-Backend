@@ -297,7 +297,7 @@ export function FleetPage() {
 
   return (
     <section className="page-shell">
-      <header className="page-header"><div><p className="eyebrow">AutoHire KE</p><h1>Fleet</h1></div><span>{vehiclesQuery.data?.length ?? 0} vehicles</span></header>
+      <header className="page-header"><div><p className="eyebrow">Gari Poa</p><h1>Fleet</h1></div><span>{vehiclesQuery.data?.length ?? 0} vehicles</span></header>
       <div className="stack stack--lg">
         {notice && <p className="field__hint" role="status">{notice}</p>}
         {storageQuery.data && <div className="card-panel stack stack--md">
@@ -462,7 +462,7 @@ export function ProfilePage() {
 
   return (
     <section className="page-shell">
-      <header className="page-header"><div><p className="eyebrow">AutoHire KE</p><h1>Profile</h1></div></header>
+      <header className="page-header"><div><p className="eyebrow">Gari Poa</p><h1>Profile</h1></div></header>
       {notice && <p className="field__hint" role="status">{notice}</p>}
       <div className="card-panel stack stack--md">
         <div><span className="label">Name</span><strong>{user?.name}</strong></div>
@@ -600,7 +600,7 @@ export function ApprovalsPage() {
 
   return (
     <section className="page-shell">
-      <header className="page-header"><div><p className="eyebrow">AutoHire KE</p><h1>Approvals</h1></div></header>
+      <header className="page-header"><div><p className="eyebrow">Gari Poa</p><h1>Approvals</h1></div></header>
       <div className="stack stack--lg">
         <div className="card-panel">
           <DataTable
@@ -819,7 +819,7 @@ export function StaffPage() {
 
   return (
     <section className="page-shell">
-      <header className="page-header"><div><p className="eyebrow">AutoHire KE</p><h1>Staff</h1></div></header>
+      <header className="page-header"><div><p className="eyebrow">Gari Poa</p><h1>Staff</h1></div></header>
       <div className="split-layout">
         <div className="stack stack--md">
           <div className="staff-card-grid">
@@ -945,7 +945,7 @@ function AuditLogView() {
 
   return (
     <section className="page-shell">
-      <header className="page-header"><div><p className="eyebrow">AutoHire KE</p><h1>Audit log</h1></div></header>
+      <header className="page-header"><div><p className="eyebrow">Gari Poa</p><h1>Audit log</h1></div></header>
       <div className="card-panel stack stack--md">
         <div className="filter-grid">
           <Input label="From date" onChange={(event) => setFromDate(event.target.value)} type="date" value={fromDate} />
